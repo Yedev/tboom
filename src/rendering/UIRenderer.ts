@@ -5,7 +5,7 @@ import {
   PIECE_COLORS, PIECE_BORDER_COLORS,
 } from '../constants';
 
-// Adjusted panel layout to fit stage info (all offsets from BOARD_Y)
+// Panel layout — all offsets from BOARD_Y
 const Y_SCORE_LABEL  = 0;
 const Y_SCORE_VALUE  = 22;
 const Y_LEVEL_LABEL  = 56;
@@ -14,12 +14,13 @@ const Y_LINES_LABEL  = 112;
 const Y_LINES_VALUE  = 130;
 const Y_STAGE_LABEL  = 156;
 const Y_STAGE_VALUE  = 174;
-const Y_STAGE_PROG   = 192;
-const Y_NEXT_LABEL   = 218;
-const Y_NEXT_PREVIEW = 240;  // absolute offset from BOARD_Y (was PREVIEW_Y_OFFSET=250)
-const Y_HP_LABEL     = 310;
-const Y_BOMB_LABEL   = 350;
-const Y_CONTROLS     = 420;
+const Y_STAGE_PROG   = 192;  // lines progress
+const Y_STAGE_GOAL   = 208;  // ★ target score
+const Y_NEXT_LABEL   = 232;
+const Y_NEXT_PREVIEW = 254;
+const Y_HP_LABEL     = 324;
+const Y_BOMB_LABEL   = 364;
+const Y_CONTROLS     = 434;
 
 export class UIRenderer {
   private scene: Phaser.Scene;
@@ -28,6 +29,7 @@ export class UIRenderer {
   private linesText!: Phaser.GameObjects.Text;
   private stageText!: Phaser.GameObjects.Text;
   private stageProgText!: Phaser.GameObjects.Text;
+  private stageGoalText!: Phaser.GameObjects.Text;
   private nextPreview!: Phaser.GameObjects.Graphics;
   private gameOverOverlay!: Phaser.GameObjects.Container;
 
@@ -73,9 +75,14 @@ export class UIRenderer {
     scene.add.text(PANEL_X, BOARD_Y + Y_LINES_LABEL, 'LINES', titleStyle);
     this.linesText = scene.add.text(PANEL_X, BOARD_Y + Y_LINES_VALUE, '0', valueStyle);
 
+    const goalStyle: Phaser.Types.GameObjects.Text.TextStyle = {
+      fontSize: '13px', fontFamily: 'monospace', color: '#ffdd44', fontStyle: 'bold',
+    };
+
     scene.add.text(PANEL_X, BOARD_Y + Y_STAGE_LABEL, 'STAGE', titleStyle);
     this.stageText     = scene.add.text(PANEL_X, BOARD_Y + Y_STAGE_VALUE, '1', valueStyle);
     this.stageProgText = scene.add.text(PANEL_X, BOARD_Y + Y_STAGE_PROG, '0 / 5', smallStyle);
+    this.stageGoalText = scene.add.text(PANEL_X, BOARD_Y + Y_STAGE_GOAL, '\u2605 GOAL: 500', goalStyle);
 
     scene.add.text(PANEL_X, BOARD_Y + Y_NEXT_LABEL, 'NEXT', titleStyle);
     this.nextPreview = scene.add.graphics();
@@ -112,8 +119,8 @@ export class UIRenderer {
     }).setOrigin(0.5);
     this.gameOverOverlay.add(goText);
 
-    const restartText = scene.add.text(0, 20, 'Press R to Restart', {
-      fontSize: '14px', fontFamily: 'monospace', color: '#aabbcc',
+    const restartText = scene.add.text(0, 20, 'Returning to stage select...', {
+      fontSize: '13px', fontFamily: 'monospace', color: '#aabbcc',
     }).setOrigin(0.5);
     this.gameOverOverlay.add(restartText);
   }
@@ -128,9 +135,12 @@ export class UIRenderer {
     this.updateLines(lines);
   }
 
-  updateStage(stage: number, current: number, target: number): void {
+  updateStage(stage: number, current: number, target: number, targetScore?: number): void {
     this.stageText.setText(stage.toString());
-    this.stageProgText.setText(`${current} / ${target}`);
+    this.stageProgText.setText(`${current} / ${target} lines`);
+    if (targetScore !== undefined) {
+      this.stageGoalText.setText(`\u2605 GOAL: ${targetScore}`);
+    }
   }
 
   drawNextPreview(nextType: number, tetrominoes: number[][][][]): void {

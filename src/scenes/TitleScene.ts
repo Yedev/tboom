@@ -74,13 +74,13 @@ export class TitleScene extends Phaser.Scene {
     // Keyboard
     this.input.keyboard!.on('keydown', (event: KeyboardEvent) => {
       if (event.code === 'Space' || event.code === 'Enter') {
-        this.scene.start('GameScene');
+        this.scene.start('LevelSelectScene');
       }
     });
 
     // Touch / click
     this.input.once('pointerdown', () => {
-      this.scene.start('GameScene');
+      this.scene.start('LevelSelectScene');
     });
   }
 

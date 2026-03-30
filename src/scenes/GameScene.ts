@@ -1,16 +1,19 @@
 import Phaser from 'phaser';
-import { TETROMINOES, BOMB_HURT_RADIUS, BOMB_DAMAGE, CLEAR_ANIM_DURATION } from '../constants';
+import { TETROMINOES, BOMB_HURT_RADIUS, BOMB_DAMAGE, CLEAR_ANIM_DURATION, CHAR_WIDTH, CHAR_HEIGHT, SLIME_DAMAGE, SLIME_SCORE } from '../constants';
 import { BoardModel } from '../core/BoardModel';
 import { TetrisEngine, ActivePiece } from '../core/TetrisEngine';
 import { CharacterPhysics, CharacterInput } from '../core/CharacterPhysics';
 import { BombSystem } from '../core/BombSystem';
 import { GameStateMachine, GameState } from '../core/GameStateMachine';
 import { LevelManager } from '../core/LevelManager';
+import { LevelProgress } from '../core/LevelProgress';
 import { PlayerUpgrades, pickRandomCards } from '../core/PlayerUpgrades';
+import { SlimeSystem } from '../core/SlimeSystem';
 import { BoardRenderer } from '../rendering/BoardRenderer';
 import { PieceRenderer, PieceRenderInfo } from '../rendering/PieceRenderer';
 import { CharacterRenderer, CharacterRenderState } from '../rendering/CharacterRenderer';
 import { BombRenderer, BombRenderData, ExplosionRenderData } from '../rendering/BombRenderer';
+import { SlimeRenderer } from '../rendering/SlimeRenderer';
 import { UIRenderer } from '../rendering/UIRenderer';
 import { CardOverlay } from '../rendering/CardOverlay';
 import { InputManager } from '../input/InputManager';
@@ -25,8 +28,11 @@ export class GameScene extends Phaser.Scene {
   private tetris!: TetrisEngine;
   private character!: CharacterPhysics;
   private bombs!: BombSystem;
+  private slimes!: SlimeSystem;
   private stateMachine!: GameStateMachine;
   private levelManager!: LevelManager;
+  private levelProgress!: LevelProgress;
+  private currentLevel: number = 1;
   private upgrades!: PlayerUpgrades;
 
   // Rendering
@@ -34,6 +40,7 @@ export class GameScene extends Phaser.Scene {
   private pieceRenderer!: PieceRenderer;
   private charRenderer!: CharacterRenderer;
   private bombRenderer!: BombRenderer;
+  private slimeRenderer!: SlimeRenderer;
   private uiRenderer!: UIRenderer;
   private cardOverlay!: CardOverlay;
 
@@ -58,6 +65,9 @@ export class GameScene extends Phaser.Scene {
   private clearAnimTimer = 0;
   private clearedRows: number[] = [];
 
+  // Game over return timer
+  private gameOverTimer = 0;
+
   // Bomb Graphics objects (one per bomb/explosion, created/destroyed dynamically)
   private bombGraphics: Phaser.GameObjects.Graphics[]      = [];
   private explosionGraphics: Phaser.GameObjects.Graphics[] = [];
@@ -78,16 +88,22 @@ export class GameScene extends Phaser.Scene {
     this.load.audio('place',    'audio/place.ogg');
   }
 
-  create(): void {
+  create(data: { level?: number }): void {
+    // Get level from scene data
+    this.currentLevel = data.level ?? 1;
+
     // Player upgrades (must be created before character/bombs)
-    this.upgrades     = new PlayerUpgrades();
-    this.levelManager = new LevelManager();
+    this.upgrades      = new PlayerUpgrades();
+    this.levelManager  = new LevelManager();
+    this.levelManager.setStage(this.currentLevel);
+    this.levelProgress = LevelProgress.getInstance();
 
     // Core systems
     this.boardModel   = new BoardModel();
     this.tetris       = new TetrisEngine(this.boardModel);
     this.character    = new CharacterPhysics(this.boardModel, this.upgrades);
     this.bombs        = new BombSystem(this.boardModel, this.upgrades);
+    this.slimes       = new SlimeSystem(this.boardModel, this.levelManager.getConfig().slime);
     this.stateMachine = new GameStateMachine();
 
     // Touch controls
@@ -105,6 +121,7 @@ export class GameScene extends Phaser.Scene {
     this.pieceRenderer = new PieceRenderer(this, TETROMINOES);
     this.charRenderer  = new CharacterRenderer(this);
     this.bombRenderer  = new BombRenderer();
+    this.slimeRenderer = new SlimeRenderer(this);
     this.cardOverlay   = new CardOverlay(this);
 
     // Audio
@@ -118,7 +135,7 @@ export class GameScene extends Phaser.Scene {
     // Initial state
     this.tetris.spawnPiece();
     this.uiRenderer.drawNextPreview(this.tetris.nextType, TETROMINOES);
-    this.uiRenderer.updateStage(1, 0, this.levelManager.getTargetLines());
+    this.uiRenderer.updateStage(this.currentLevel, 0, this.levelManager.getTargetLines(), this.levelManager.getTargetScore());
     this.charRenderer.drawHP(this.character.hp, this.character.maxHp);
     this.charRenderer.drawBombCount(this.bombs.bombCount);
     this.renderAll();
@@ -129,8 +146,10 @@ export class GameScene extends Phaser.Scene {
     this.touchControls?.update();
 
     if (this.stateMachine.isGameOver()) {
-      const sys = this.inputManager.getSystemInput();
-      if (sys.restart) this.restart();
+      this.gameOverTimer -= delta;
+      if (this.gameOverTimer <= 0) {
+        this.scene.start('LevelSelectScene');
+      }
       return;
     }
 
@@ -152,7 +171,7 @@ export class GameScene extends Phaser.Scene {
 
     if (!this.character.alive) {
       this.stateMachine.transition('characterDied');
-      this.uiRenderer.showGameOver();
+      this.triggerGameOver();
       this.renderAll();
       return;
     }
@@ -166,6 +185,9 @@ export class GameScene extends Phaser.Scene {
     // --- Bomb update ---
     this.updateBombSystem(delta);
 
+    // --- Slime update ---
+    this.updateSlimes(delta);
+
     // --- Line clear animation ---
     if (this.stateMachine.isClearingLines()) {
       this.clearAnimTimer += delta;
@@ -176,43 +198,44 @@ export class GameScene extends Phaser.Scene {
         this.tetris.clearLines(this.clearedRows);
         this.uiRenderer.updateAll(this.tetris.score, this.tetris.level, this.tetris.lines);
 
-        const stageComplete = this.levelManager.onLinesCleared(this.clearedRows.length);
+        const linesGoalMet  = this.levelManager.onLinesCleared(this.clearedRows.length);
+        const stageComplete = linesGoalMet && this.tetris.score >= this.levelManager.getTargetScore();
         this.uiRenderer.updateStage(
           this.levelManager.currentStage,
           this.levelManager.linesThisStage,
           this.levelManager.getTargetLines(),
+          this.levelManager.getTargetScore(),
         );
 
         if (stageComplete) {
-          const completedStage = this.levelManager.currentStage;
-          this.levelManager.advanceStage();
           this.stateMachine.transition('stageClear');
           this.boardRenderer.markDirty();
 
-          const cards = pickRandomCards(3);
-          this.cardOverlay.show(cards, completedStage, (card) => {
-            this.upgrades.applyCard(card);
+          const isFirstClear = this.levelProgress.isFirstClear(this.currentLevel);
 
-            // HP boost also heals immediately
-            if (card.id === 'hp_boost') {
-              this.character.hp = Math.min(
-                this.character.hp + 2,
-                this.character.maxHp,
-              );
-            }
+          if (isFirstClear) {
+            // First clear: show card selection
+            const cards = pickRandomCards(3);
+            this.cardOverlay.show(cards, this.currentLevel, (card) => {
+              this.upgrades.applyCard(card);
 
-            this.charRenderer.drawHP(this.character.hp, this.character.maxHp);
-            this.charRenderer.drawBombCount(this.bombs.bombCount);
-            this.uiRenderer.updateStage(
-              this.levelManager.currentStage,
-              this.levelManager.linesThisStage,
-              this.levelManager.getTargetLines(),
-            );
+              // HP boost also heals immediately
+              if (card.id === 'hp_boost') {
+                this.character.hp = Math.min(
+                  this.character.hp + 2,
+                  this.character.maxHp,
+                );
+              }
 
-            this.stateMachine.transition('cardSelected');
-            this.boardRenderer.markDirty();
-            this.spawnPiece();
-          });
+              // Mark level as cleared and return to level select
+              this.levelProgress.markCleared(this.currentLevel);
+              this.scene.start('LevelSelectScene');
+            });
+          } else {
+            // Already cleared: return to level select immediately
+            this.levelProgress.markCleared(this.currentLevel);
+            this.scene.start('LevelSelectScene');
+          }
         } else {
           this.stateMachine.transition('animDone');
           this.boardRenderer.markDirty();
@@ -280,13 +303,20 @@ export class GameScene extends Phaser.Scene {
 
     if (!this.character.alive) {
       this.stateMachine.transition('characterDied');
-      this.uiRenderer.showGameOver();
+      this.triggerGameOver();
       return;
     }
 
     // Add bomb
     this.bombs.addBomb();
     this.charRenderer.drawBombCount(this.bombs.bombCount);
+
+    // Kill slimes crushed by the locked piece
+    const slimesCrushed = this.slimes.killSlimesUnderPiece();
+    if (slimesCrushed > 0) {
+      this.tetris.score += Math.floor(SLIME_SCORE * this.upgrades.scoreMultiplier) * slimesCrushed;
+      this.uiRenderer.updateScore(this.tetris.score);
+    }
 
     // Check lines
     const fullRows = this.tetris.checkLines();
@@ -302,10 +332,29 @@ export class GameScene extends Phaser.Scene {
   private spawnPiece(): void {
     if (!this.tetris.spawnPiece()) {
       this.stateMachine.transition('pieceOverlap');
-      this.uiRenderer.showGameOver();
+      this.triggerGameOver();
       return;
     }
     this.uiRenderer.drawNextPreview(this.tetris.nextType, TETROMINOES);
+  }
+
+  private triggerGameOver(): void {
+    this.uiRenderer.showGameOver();
+    this.gameOverTimer = 2500;
+  }
+
+  // ---- Slime system ----
+
+  private updateSlimes(delta: number): void {
+    const contacts = this.slimes.update(delta, this.character.x, this.character.y, CHAR_WIDTH, CHAR_HEIGHT);
+    if (contacts.length > 0) {
+      this.character.takeDamage(SLIME_DAMAGE);
+      this.charRenderer.drawHP(this.character.hp, this.character.maxHp);
+      if (!this.character.alive) {
+        this.stateMachine.transition('characterDied');
+        this.triggerGameOver();
+      }
+    }
   }
 
   // ---- Bomb system ----
@@ -342,8 +391,14 @@ export class GameScene extends Phaser.Scene {
         this.charRenderer.drawHP(this.character.hp, this.character.maxHp);
         if (!this.character.alive) {
           this.stateMachine.transition('characterDied');
-          this.uiRenderer.showGameOver();
+          this.triggerGameOver();
         }
+      }
+
+      const slimesBlasted = this.slimes.killSlimesInExplosion(explosionResult.blastCells);
+      if (slimesBlasted > 0) {
+        this.tetris.score += Math.floor(SLIME_SCORE * this.upgrades.scoreMultiplier) * slimesBlasted;
+        this.uiRenderer.updateScore(this.tetris.score);
       }
     }
 
@@ -391,8 +446,14 @@ export class GameScene extends Phaser.Scene {
         this.charRenderer.drawHP(this.character.hp, this.character.maxHp);
         if (!this.character.alive) {
           this.stateMachine.transition('characterDied');
-          this.uiRenderer.showGameOver();
+          this.triggerGameOver();
         }
+      }
+
+      const slimesBlasted = this.slimes.killSlimesInExplosion(result.blastCells);
+      if (slimesBlasted > 0) {
+        this.tetris.score += Math.floor(SLIME_SCORE * this.upgrades.scoreMultiplier) * slimesBlasted;
+        this.uiRenderer.updateScore(this.tetris.score);
       }
     }
   }
@@ -445,6 +506,7 @@ export class GameScene extends Phaser.Scene {
   private renderCharacterAndBombs(): void {
     const state = this.character.getState();
     this.charRenderer.draw(state);
+    this.slimeRenderer.draw(this.slimes.slimes, this.slimes.deathEffects);
 
     for (let i = 0; i < this.bombs.bombs.length; i++) {
       const bomb = this.bombs.bombs[i];
@@ -474,6 +536,7 @@ export class GameScene extends Phaser.Scene {
     this.tetris.reset();
     this.character.reset();
     this.bombs.reset();
+    this.slimes.reset();
     this.stateMachine.transition('restart');
     this.cardOverlay.hide();
 
@@ -492,7 +555,7 @@ export class GameScene extends Phaser.Scene {
     this.pieceRenderer.clear();
     this.uiRenderer.hideGameOver();
     this.uiRenderer.updateAll(0, 1, 0);
-    this.uiRenderer.updateStage(1, 0, this.levelManager.getTargetLines());
+    this.uiRenderer.updateStage(1, 0, this.levelManager.getTargetLines(), this.levelManager.getTargetScore());
 
     this.spawnPiece();
     this.charRenderer.drawHP(this.character.hp, this.character.maxHp);

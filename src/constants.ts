@@ -158,8 +158,8 @@ export const BOMB_BLOCK_SCORE = 15;  // score per block destroyed by bomb
 export const BOMB_MAX_COUNT = 3;     // initial max bombs player can hold
 
 // Character constants
-export const CHAR_WIDTH = 20;
-export const CHAR_HEIGHT = 24;
+export const CHAR_WIDTH = 32;
+export const CHAR_HEIGHT = 32;
 export const CHAR_SCALE = 1;              // ratio vs original BLOCK_SIZE=32 design
 export const CHAR_GRAVITY = 1200;          // pixels/sec^2
 export const CHAR_JUMP_VELOCITY = -420;  // pixels/sec (negative = up)
@@ -224,6 +224,25 @@ export const EXPLOSION_FLASH_INTERVAL = 60;
 export const EXPLOSION_FLASH_ALPHA = 0.85;
 export const EXPLOSION_COLOR_A = 0xff6600;
 export const EXPLOSION_COLOR_B = 0xffcc00;
+
+// Character hitbox inset (smaller collision box than visual)
+export const CHAR_HB_INSET_X = 3; // px inset per side horizontally
+
+// Slime enemy (active from level 2+)
+export const SLIME_SIZE = 24;              // hitbox & visual size (px)
+export const SLIME_GRAVITY = 1200;
+export const SLIME_JUMP_VELOCITY = -360;
+export const SLIME_MOVE_SPEED = 70;        // px/sec horizontal while airborne
+export const SLIME_JUMP_INTERVAL = 2200;   // ms between jumps
+export const SLIME_SPAWN_INTERVAL = 18000; // ms between spawns
+export const SLIME_FIRST_SPAWN = 10000;    // ms until first spawn
+export const SLIME_MAX_COUNT = 3;
+export const SLIME_DAMAGE = 1;
+export const SLIME_SCORE = 200;
+export const SLIME_COLOR_BODY = 0x33bb33;
+export const SLIME_COLOR_DARK = 0x228822;
+export const SLIME_COLOR_EYE = 0xffffff;
+export const SLIME_COLOR_PUPIL = 0x004400;
 
 // Touch controls layout
 export const DPAD_CX = 110;

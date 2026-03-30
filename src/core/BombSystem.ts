@@ -25,6 +25,7 @@ export interface ExplosionData {
 
 export interface ExplosionResult {
   destroyedCells: { col: number; row: number }[];
+  blastCells: { col: number; row: number }[];
   bombCol: number;
   bombRow: number;
   hurtCharDist: number;
@@ -158,6 +159,7 @@ export class BombSystem {
 
     return {
       destroyedCells,
+      blastCells: allCells,
       bombCol: bCol,
       bombRow: bRow,
       hurtCharDist: dist,

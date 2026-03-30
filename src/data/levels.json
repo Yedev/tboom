@@ -1,0 +1,126 @@
+{
+  "levels": [
+    {
+      "id": 1,
+      "targetScore": 500,
+      "targetLines": 3
+    },
+    {
+      "id": 2,
+      "targetScore": 1200,
+      "targetLines": 4,
+      "slime": {
+        "firstSpawn": 10000,
+        "spawnInterval": 18000,
+        "maxCount": 3,
+        "moveSpeed": 70,
+        "jumpVelocity": -360,
+        "jumpInterval": 2200
+      }
+    },
+    {
+      "id": 3,
+      "targetScore": 2200,
+      "targetLines": 5,
+      "slime": {
+        "firstSpawn": 8000,
+        "spawnInterval": 16000,
+        "maxCount": 3,
+        "moveSpeed": 85,
+        "jumpVelocity": -385,
+        "jumpInterval": 2050
+      }
+    },
+    {
+      "id": 4,
+      "targetScore": 3500,
+      "targetLines": 6,
+      "slime": {
+        "firstSpawn": 7000,
+        "spawnInterval": 14000,
+        "maxCount": 4,
+        "moveSpeed": 100,
+        "jumpVelocity": -410,
+        "jumpInterval": 1900
+      }
+    },
+    {
+      "id": 5,
+      "targetScore": 5000,
+      "targetLines": 7,
+      "slime": {
+        "firstSpawn": 6000,
+        "spawnInterval": 12000,
+        "maxCount": 4,
+        "moveSpeed": 115,
+        "jumpVelocity": -435,
+        "jumpInterval": 1750
+      }
+    },
+    {
+      "id": 6,
+      "targetScore": 7000,
+      "targetLines": 10,
+      "slime": {
+        "firstSpawn": 5000,
+        "spawnInterval": 10000,
+        "maxCount": 5,
+        "moveSpeed": 130,
+        "jumpVelocity": -460,
+        "jumpInterval": 1600
+      }
+    },
+    {
+      "id": 7,
+      "targetScore": 9500,
+      "targetLines": 12,
+      "slime": {
+        "firstSpawn": 5000,
+        "spawnInterval": 8500,
+        "maxCount": 5,
+        "moveSpeed": 145,
+        "jumpVelocity": -485,
+        "jumpInterval": 1450
+      }
+    },
+    {
+      "id": 8,
+      "targetScore": 12500,
+      "targetLines": 20,
+      "slime": {
+        "firstSpawn": 4000,
+        "spawnInterval": 7000,
+        "maxCount": 6,
+        "moveSpeed": 160,
+        "jumpVelocity": -510,
+        "jumpInterval": 1300
+      }
+    },
+    {
+      "id": 9,
+      "targetScore": 16000,
+      "targetLines": 24,
+      "slime": {
+        "firstSpawn": 4000,
+        "spawnInterval": 5500,
+        "maxCount": 6,
+        "moveSpeed": 175,
+        "jumpVelocity": -535,
+        "jumpInterval": 1150
+      }
+    },
+    {
+      "id": 10,
+      "targetScore": 20000,
+      "targetLines": 32,
+      "slime": {
+        "firstSpawn": 3000,
+        "spawnInterval": 4000,
+        "maxCount": 7,
+        "moveSpeed": 190,
+        "jumpVelocity": -560,
+        "jumpInterval": 1000
+      }
+    }
+  ]
+}

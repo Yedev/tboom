@@ -4,6 +4,7 @@ import {
   CHAR_MAX_HP, CHAR_CRUSH_DAMAGE, CHAR_INVINCIBLE_DURATION,
   CHAR_ABOVE_BOARD_BLOCKS, CHAR_FALL_OFF_MARGIN,
   MAX_DELTA_MS, FIND_FREE_STEP, FIND_FREE_MAX_RADIUS,
+  CHAR_HB_INSET_X,
 } from '../constants';
 import { BoardModel } from './BoardModel';
 import { PlayerUpgrades } from './PlayerUpgrades';
@@ -89,8 +90,8 @@ export class CharacterPhysics {
   checkCrushOnLock(): boolean {
     if (!this.alive) return false;
     const board = this.boardModel.getBoard();
-    const left   = this.x;
-    const right  = this.x + CHAR_WIDTH  - 1;
+    const left   = this.x + CHAR_HB_INSET_X;
+    const right  = this.x + CHAR_WIDTH  - CHAR_HB_INSET_X - 1;
     const top    = this.y;
     const bottom = this.y + CHAR_HEIGHT - 1;
 
@@ -180,8 +181,8 @@ export class CharacterPhysics {
         const tx = this.x + dx, ty = this.y + dy;
         if (tx < BOARD_X || tx + CHAR_WIDTH  > BOARD_X + COLS * BLOCK_SIZE) continue;
         if (ty < BOARD_Y || ty + CHAR_HEIGHT > BOARD_Y + ROWS * BLOCK_SIZE) continue;
-        const c0 = Math.floor((tx - BOARD_X) / BLOCK_SIZE);
-        const c1 = Math.floor((tx + CHAR_WIDTH  - 1 - BOARD_X) / BLOCK_SIZE);
+        const c0 = Math.floor((tx + CHAR_HB_INSET_X - BOARD_X) / BLOCK_SIZE);
+        const c1 = Math.floor((tx + CHAR_WIDTH  - CHAR_HB_INSET_X - 1 - BOARD_X) / BLOCK_SIZE);
         const r0 = Math.floor((ty - BOARD_Y) / BLOCK_SIZE);
         const r1 = Math.floor((ty + CHAR_HEIGHT - 1 - BOARD_Y) / BLOCK_SIZE);
         let hit = false;
@@ -196,8 +197,9 @@ export class CharacterPhysics {
 
   private resolveCollisionsX(): void {
     const board = this.boardModel.getBoard();
-    const left   = this.x;
-    const right  = this.x + CHAR_WIDTH  - 1;
+    // Use hitbox inset for narrower collision box
+    const left   = this.x + CHAR_HB_INSET_X;
+    const right  = this.x + CHAR_WIDTH  - CHAR_HB_INSET_X - 1;
     const top    = this.y;
     const bottom = this.y + CHAR_HEIGHT - 1;
 
@@ -213,11 +215,13 @@ export class CharacterPhysics {
         const cr = cl + BLOCK_SIZE;
         const ct = BOARD_Y + r * BLOCK_SIZE;
         const cb = ct + BLOCK_SIZE;
-        if (this.x + CHAR_WIDTH <= cl || this.x >= cr ||
-            this.y + CHAR_HEIGHT <= ct || this.y >= cb) continue;
-        const oL = (this.x + CHAR_WIDTH) - cl;
-        const oR = cr - this.x;
-        this.x  = oL < oR ? cl - CHAR_WIDTH : cr;
+        if (left >= cr || right < cl || this.y + CHAR_HEIGHT <= ct || this.y >= cb) continue;
+        const oL = right + 1 - cl;
+        const oR = cr - left;
+        // Push character so hitbox edge is flush with block edge
+        this.x  = oL < oR
+          ? cl - (CHAR_WIDTH - CHAR_HB_INSET_X)
+          : cr - CHAR_HB_INSET_X;
         this.vx = 0;
       }
     }
@@ -227,8 +231,9 @@ export class CharacterPhysics {
     const board = this.boardModel.getBoard();
     this.grounded = false;
 
-    const left   = this.x;
-    const right  = this.x + CHAR_WIDTH  - 1;
+    // Use hitbox inset for horizontal extent
+    const left   = this.x + CHAR_HB_INSET_X;
+    const right  = this.x + CHAR_WIDTH  - CHAR_HB_INSET_X - 1;
     const top    = this.y;
     const bottom = this.y + CHAR_HEIGHT - 1;
 
@@ -259,12 +264,12 @@ export class CharacterPhysics {
       }
     }
 
-    // Ground probe 1px below
+    // Ground probe 1px below (use inset for horizontal extent)
     if (!this.grounded && this.vy >= 0) {
       const probeY = this.y + CHAR_HEIGHT;
       if (probeY <= BOARD_Y + ROWS * BLOCK_SIZE) {
-        const pMinCol  = Math.max(0, Math.floor((this.x - BOARD_X) / BLOCK_SIZE));
-        const pMaxCol  = Math.min(COLS - 1, Math.floor((this.x + CHAR_WIDTH - 1 - BOARD_X) / BLOCK_SIZE));
+        const pMinCol  = Math.max(0, Math.floor((this.x + CHAR_HB_INSET_X - BOARD_X) / BLOCK_SIZE));
+        const pMaxCol  = Math.min(COLS - 1, Math.floor((this.x + CHAR_WIDTH - CHAR_HB_INSET_X - 1 - BOARD_X) / BLOCK_SIZE));
         const probeRow = Math.floor((probeY - BOARD_Y) / BLOCK_SIZE);
         if (probeRow >= 0 && probeRow < ROWS) {
           for (let c = pMinCol; c <= pMaxCol; c++) {
