@@ -66,8 +66,24 @@ export class TitleScene extends Phaser.Scene {
       fontSize: '12px', fontFamily: 'monospace', color: ctrlClr,
     }).setOrigin(0.5);
 
+    // Tutorial button
+    const tutX = CANVAS_WIDTH / 2;
+    const tutY = 620;
+    const tutBg = this.add.graphics();
+    tutBg.fillStyle(0x1a2a3a, 0.95);
+    tutBg.fillRoundedRect(tutX - 70, tutY - 20, 140, 40, 8);
+    tutBg.lineStyle(1, 0x4466aa, 0.9);
+    tutBg.strokeRoundedRect(tutX - 70, tutY - 20, 140, 40, 8);
+    const tutBtn = this.add.text(tutX, tutY, '📖 游戏教程', {
+      fontSize: '16px', fontFamily: 'monospace', color: '#88aacc',
+    }).setOrigin(0.5);
+    tutBtn.setInteractive({ cursor: 'pointer' });
+    tutBtn.on('pointerover', () => tutBtn.setColor('#aaccee'));
+    tutBtn.on('pointerout',  () => tutBtn.setColor('#88aacc'));
+    tutBtn.on('pointerdown', () => this.scene.start('TutorialScene'));
+
     // Flashing start prompt
-    this.flashText = this.add.text(CANVAS_WIDTH / 2, 664, 'Press SPACE / Tap to Start', {
+    this.flashText = this.add.text(CANVAS_WIDTH / 2, 686, 'Press SPACE / Tap to Start', {
       fontSize: '20px', fontFamily: 'monospace', color: '#ffdd44', fontStyle: 'bold',
     }).setOrigin(0.5);
 
@@ -78,8 +94,10 @@ export class TitleScene extends Phaser.Scene {
       }
     });
 
-    // Touch / click
-    this.input.once('pointerdown', () => {
+    // Touch / click — only trigger on non-button area
+    this.input.on('pointerdown', (ptr: Phaser.Input.Pointer) => {
+      if (ptr.y > tutY - 24 && ptr.y < tutY + 24 &&
+          ptr.x > tutX - 74 && ptr.x < tutX + 74) return;
       this.scene.start('LevelSelectScene');
     });
   }
