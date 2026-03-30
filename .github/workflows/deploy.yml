@@ -43,7 +43,7 @@ jobs:
           host: ${{ secrets.ALIYUN_HOST }}
           username: ${{ secrets.ALIYUN_USER }}
           key: ${{ secrets.ALIYUN_SSH_KEY }}
-          envs: REGISTRY,NAMESPACE,IMAGE,CONTAINER_NAME
+          envs: REGISTRY,NAMESPACE,IMAGE,CONTAINER_NAME,HOST_PORT
           script: |
             docker login $REGISTRY \
               -u ${{ secrets.ALIYUN_REGISTRY_USER }} \
