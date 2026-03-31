@@ -1,14 +1,10 @@
 {
   "levels": [
     {
-      "id": 1,
-      "targetScore": 500,
-      "targetLines": 3
+      "id": 1
     },
     {
       "id": 2,
-      "targetScore": 1200,
-      "targetLines": 4,
       "slime": {
         "firstSpawn": 10000,
         "spawnInterval": 18000,
@@ -20,8 +16,6 @@
     },
     {
       "id": 3,
-      "targetScore": 2200,
-      "targetLines": 5,
       "slime": {
         "firstSpawn": 8000,
         "spawnInterval": 16000,
@@ -33,8 +27,6 @@
     },
     {
       "id": 4,
-      "targetScore": 3500,
-      "targetLines": 6,
       "slime": {
         "firstSpawn": 7000,
         "spawnInterval": 14000,
@@ -46,8 +38,6 @@
     },
     {
       "id": 5,
-      "targetScore": 5000,
-      "targetLines": 7,
       "slime": {
         "firstSpawn": 6000,
         "spawnInterval": 12000,
@@ -59,8 +49,6 @@
     },
     {
       "id": 6,
-      "targetScore": 7000,
-      "targetLines": 10,
       "slime": {
         "firstSpawn": 5000,
         "spawnInterval": 10000,
@@ -72,8 +60,6 @@
     },
     {
       "id": 7,
-      "targetScore": 9500,
-      "targetLines": 12,
       "slime": {
         "firstSpawn": 5000,
         "spawnInterval": 8500,
@@ -85,8 +71,6 @@
     },
     {
       "id": 8,
-      "targetScore": 12500,
-      "targetLines": 20,
       "slime": {
         "firstSpawn": 4000,
         "spawnInterval": 7000,
@@ -98,8 +82,6 @@
     },
     {
       "id": 9,
-      "targetScore": 16000,
-      "targetLines": 24,
       "slime": {
         "firstSpawn": 4000,
         "spawnInterval": 5500,
@@ -111,8 +93,6 @@
     },
     {
       "id": 10,
-      "targetScore": 20000,
-      "targetLines": 32,
       "slime": {
         "firstSpawn": 3000,
         "spawnInterval": 4000,
