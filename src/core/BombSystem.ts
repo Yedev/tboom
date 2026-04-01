@@ -2,13 +2,14 @@ import {
   COLS, ROWS, BLOCK_SIZE, BOARD_X, BOARD_Y,
   CHAR_WIDTH, CHAR_HEIGHT,
   BOMB_SIZE, BOMB_GRAVITY, BOMB_FUSE_TIME,
-  BOMB_BLAST_RADIUS, BOMB_HURT_RADIUS, BOMB_DAMAGE,
+  BOMB_BLAST_RADIUS, BOMB_HURT_RADIUS as BASE_BOMB_HURT_RADIUS, BOMB_DAMAGE,
   BOMB_EXPLOSION_DURATION, MAX_DELTA_MS, BOMB_TICK_TIMINGS,
   BOMB_MAX_COUNT,
   TETROMINOES,
 } from '../constants';
 import { BoardModel } from './BoardModel';
 import { PlayerUpgrades } from './PlayerUpgrades';
+import { BlockType } from './BlockType';
 
 export interface BombData {
   x: number;
@@ -25,6 +26,10 @@ export interface ExplosionData {
 
 export interface ExplosionResult {
   destroyedCells: { col: number; row: number }[];
+  /** Cells that were CHEST blocks and should grant rewards */
+  chestCells: { col: number; row: number }[];
+  /** Cells that were BOMB_BLOCK and should chain-explode */
+  chainBombCells: { col: number; row: number }[];
   blastCells: { col: number; row: number }[];
   bombCol: number;
   bombRow: number;
@@ -46,6 +51,10 @@ export class BombSystem {
 
   get maxBombs(): number {
     return BOMB_MAX_COUNT + this.upgrades.bombMaxCountBonus;
+  }
+
+  get hurtRadius(): number {
+    return BASE_BOMB_HURT_RADIUS + this.upgrades.bombSelfHurtRadiusBonus;
   }
 
   addBomb(): void {
@@ -126,13 +135,21 @@ export class BombSystem {
     const blastRadius = BOMB_BLAST_RADIUS + this.upgrades.bombBlastRadiusBonus;
 
     const destroyedCells: { col: number; row: number }[] = [];
+    const chestCells: { col: number; row: number }[] = [];
+    const chainBombCells: { col: number; row: number }[] = [];
+
     for (let dr = -blastRadius; dr <= blastRadius; dr++) {
       for (let dc = -blastRadius; dc <= blastRadius; dc++) {
         const r = bRow + dr;
         const c = bCol + dc;
         if (r >= 0 && r < ROWS && c >= 0 && c < COLS && board[r][c] !== 0) {
+          const btype = this.boardModel.getBlockType(r, c);
+          if (btype === BlockType.HARD) continue;  // immune to bombs
           board[r][c] = 0;
+          this.boardModel.setBlockType(r, c, BlockType.NORMAL);
           destroyedCells.push({ col: c, row: r });
+          if (btype === BlockType.CHEST)      chestCells.push({ col: c, row: r });
+          if (btype === BlockType.BOMB_BLOCK) chainBombCells.push({ col: c, row: r });
         }
       }
     }
@@ -157,13 +174,72 @@ export class BombSystem {
 
     this.bombs.splice(bombIndex, 1);
 
+    // chain_bomb upgrade: detonate any placed bombs caught in the blast
+    if (this.upgrades.chainBombEnabled) {
+      for (let i = this.bombs.length - 1; i >= 0; i--) {
+        const nb = this.bombs[i];
+        const nc = Math.floor((nb.x + BOMB_SIZE / 2 - BOARD_X) / BLOCK_SIZE);
+        const nr = Math.floor((nb.y + BOMB_SIZE / 2 - BOARD_Y) / BLOCK_SIZE);
+        if (Math.abs(nc - bCol) <= blastRadius && Math.abs(nr - bRow) <= blastRadius) {
+          this.bombs[i].timer = 0; // trigger immediately on next update tick
+        }
+      }
+    }
+
     return {
       destroyedCells,
+      chestCells,
+      chainBombCells,
       blastCells: allCells,
       bombCol: bCol,
       bombRow: bRow,
       hurtCharDist: dist,
     };
+  }
+
+  /**
+   * Trigger a chain explosion at a specific board cell (e.g. from BOMB_BLOCK).
+   * Uses base blast radius only (no upgrade bonus to keep chains manageable).
+   */
+  triggerChainExplosion(bCol: number, bRow: number, charX: number, charY: number): ExplosionResult {
+    const board = this.boardModel.getBoard();
+    const blastRadius = BOMB_BLAST_RADIUS;
+
+    const destroyedCells: { col: number; row: number }[] = [];
+    const chestCells: { col: number; row: number }[] = [];
+    const chainBombCells: { col: number; row: number }[] = [];
+
+    for (let dr = -blastRadius; dr <= blastRadius; dr++) {
+      for (let dc = -blastRadius; dc <= blastRadius; dc++) {
+        const r = bRow + dr;
+        const c = bCol + dc;
+        if (r >= 0 && r < ROWS && c >= 0 && c < COLS && board[r][c] !== 0) {
+          const btype = this.boardModel.getBlockType(r, c);
+          if (btype === BlockType.HARD) continue;
+          board[r][c] = 0;
+          this.boardModel.setBlockType(r, c, BlockType.NORMAL);
+          destroyedCells.push({ col: c, row: r });
+          if (btype === BlockType.CHEST)      chestCells.push({ col: c, row: r });
+          if (btype === BlockType.BOMB_BLOCK) chainBombCells.push({ col: c, row: r });
+        }
+      }
+    }
+
+    const allCells: { col: number; row: number }[] = [];
+    for (let dr = -blastRadius; dr <= blastRadius; dr++) {
+      for (let dc = -blastRadius; dc <= blastRadius; dc++) {
+        const r = bRow + dr;
+        const c = bCol + dc;
+        if (r >= 0 && r < ROWS && c >= 0 && c < COLS) allCells.push({ col: c, row: r });
+      }
+    }
+    this.explosions.push({ cells: allCells, timer: BOMB_EXPLOSION_DURATION });
+
+    const charCol = (charX + CHAR_WIDTH  / 2 - BOARD_X) / BLOCK_SIZE;
+    const charRow = (charY + CHAR_HEIGHT / 2 - BOARD_Y) / BLOCK_SIZE;
+    const dist = Math.max(Math.abs(charCol - bCol), Math.abs(charRow - bRow));
+
+    return { destroyedCells, chestCells, chainBombCells, blastCells: allCells, bombCol: bCol, bombRow: bRow, hurtCharDist: dist };
   }
 
   updateExplosions(delta: number): void {

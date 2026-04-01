@@ -1,5 +1,7 @@
 import Phaser from 'phaser';
-import { TETROMINOES, BOMB_HURT_RADIUS, BOMB_DAMAGE, CLEAR_ANIM_DURATION, CHAR_WIDTH, CHAR_HEIGHT, SLIME_DAMAGE, SLIME_SCORE } from '../constants';
+import { TETROMINOES, BOMB_DAMAGE, CLEAR_ANIM_DURATION, CHAR_WIDTH, CHAR_HEIGHT, SLIME_DAMAGE, SLIME_SCORE } from '../constants';
+import { BlockType } from '../core/BlockType';
+import { ExplosionResult } from '../core/BombSystem';
 import { BoardModel } from '../core/BoardModel';
 import { TetrisEngine, ActivePiece } from '../core/TetrisEngine';
 import { CharacterPhysics, CharacterInput } from '../core/CharacterPhysics';
@@ -7,7 +9,8 @@ import { BombSystem } from '../core/BombSystem';
 import { GameStateMachine, GameState } from '../core/GameStateMachine';
 import { LevelManager } from '../core/LevelManager';
 import { LevelProgress } from '../core/LevelProgress';
-import { PlayerUpgrades, pickRandomCards } from '../core/PlayerUpgrades';
+import { PlayerUpgrades, pickRandomCards, BOSS_UPGRADE_CARDS } from '../core/PlayerUpgrades';
+import { BossRule } from '../data/LevelConfig';
 import { SlimeSystem } from '../core/SlimeSystem';
 import { BoardRenderer } from '../rendering/BoardRenderer';
 import { PieceRenderer, PieceRenderInfo } from '../rendering/PieceRenderer';
@@ -33,6 +36,7 @@ export class GameScene extends Phaser.Scene {
   private levelManager!: LevelManager;
   private levelProgress!: LevelProgress;
   private currentLevel: number = 1;
+  private activeBossRule: BossRule = BossRule.NONE;
   private upgrades!: PlayerUpgrades;
 
   // Rendering
@@ -88,9 +92,12 @@ export class GameScene extends Phaser.Scene {
     this.load.audio('place',    'audio/place.ogg');
   }
 
-  create(data: { level?: number }): void {
+  private currentNodeId: string = '';
+
+  create(data: { level?: number; nodeId?: string }): void {
     // Get level from scene data
-    this.currentLevel = data.level ?? 1;
+    this.currentLevel  = data.level  ?? 1;
+    this.currentNodeId = data.nodeId ?? String(data.level ?? 1);
 
     // Player upgrades (must be created before character/bombs)
     this.upgrades      = new PlayerUpgrades();
@@ -98,12 +105,16 @@ export class GameScene extends Phaser.Scene {
     this.levelManager.setStage(this.currentLevel);
     this.levelProgress = LevelProgress.getInstance();
 
+    // Boss rule for this level
+    const levelCfg = this.levelManager.getConfig();
+    this.activeBossRule = levelCfg.bossRule;
+
     // Core systems
     this.boardModel   = new BoardModel();
     this.tetris       = new TetrisEngine(this.boardModel);
     this.character    = new CharacterPhysics(this.boardModel, this.upgrades);
     this.bombs        = new BombSystem(this.boardModel, this.upgrades);
-    this.slimes       = new SlimeSystem(this.boardModel, this.levelManager.getConfig().slime);
+    this.slimes       = new SlimeSystem(this.boardModel, this.buildSlimeConfig(levelCfg));
     this.stateMachine = new GameStateMachine();
 
     // Touch controls
@@ -176,8 +187,8 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // --- Bomb placement ---
-    if (charInput.bomb) {
+    // --- Bomb placement (disabled in BOMB_DISABLED boss stages) ---
+    if (charInput.bomb && this.activeBossRule !== BossRule.BOMB_DISABLED) {
       this.bombs.placeBomb(this.character.x, this.character.y);
       this.charRenderer.drawBombCount(this.bombs.bombCount);
     }
@@ -192,10 +203,14 @@ export class GameScene extends Phaser.Scene {
     if (this.stateMachine.isClearingLines()) {
       this.clearAnimTimer += delta;
       this.boardRenderer.render(
-        this.boardModel.getBoard(), true, this.clearedRows, this.clearAnimTimer,
+        this.boardModel.getBoard(), this.boardModel.getBlockTypes(),
+        true, this.clearedRows, this.clearAnimTimer,
       );
       if (this.clearAnimTimer > CLEAR_ANIM_DURATION) {
-        this.tetris.clearLines(this.clearedRows);
+        // Process special block effects before rows are removed
+        const clearedTypes = this.boardModel.getBlockTypesInRows(this.clearedRows);
+        this.applyLineClearBlockEffects(clearedTypes);
+        this.tetris.clearLines(this.clearedRows, this.upgrades.lineClearScoreMult);
         this.uiRenderer.updateAll(this.tetris.score, this.tetris.level, this.tetris.lines);
 
         const linesGoalMet  = this.levelManager.onLinesCleared(this.clearedRows.length);
@@ -214,8 +229,11 @@ export class GameScene extends Phaser.Scene {
           const isFirstClear = this.levelProgress.isFirstClear(this.currentLevel);
 
           if (isFirstClear) {
-            // First clear: show card selection
-            const cards = pickRandomCards(3);
+            // First clear: boss levels show rare cards, normal levels show standard cards
+            const isBoss = this.levelManager.getConfig().isBoss;
+            const cards = isBoss
+              ? [...BOSS_UPGRADE_CARDS].sort(() => Math.random() - 0.5).slice(0, Math.min(2, BOSS_UPGRADE_CARDS.length))
+              : pickRandomCards(3);
             this.cardOverlay.show(cards, this.currentLevel, (card) => {
               this.upgrades.applyCard(card);
 
@@ -227,13 +245,20 @@ export class GameScene extends Phaser.Scene {
                 );
               }
 
-              // Mark level as cleared and return to level select
+              // bomb_capacity negative effect: target lines +2
+              if (card.id === 'bomb_capacity') {
+                this.levelManager.addTargetLinesBonus(2);
+              }
+
+              // Mark level as cleared and return to map
               this.levelProgress.markCleared(this.currentLevel);
+              this.levelProgress.markNodeCleared(this.currentNodeId);
               this.scene.start('LevelSelectScene');
             });
           } else {
-            // Already cleared: return to level select immediately
+            // Already cleared: return to map immediately
             this.levelProgress.markCleared(this.currentLevel);
+            this.levelProgress.markNodeCleared(this.currentNodeId);
             this.scene.start('LevelSelectScene');
           }
         } else {
@@ -314,7 +339,7 @@ export class GameScene extends Phaser.Scene {
     // Kill slimes crushed by the locked piece
     const slimesCrushed = this.slimes.killSlimesUnderPiece();
     if (slimesCrushed > 0) {
-      this.tetris.score += Math.floor(SLIME_SCORE * this.upgrades.scoreMultiplier) * slimesCrushed;
+      this.tetris.score += Math.floor(SLIME_SCORE * this.upgrades.slimeKillScoreMult) * slimesCrushed;
       this.uiRenderer.updateScore(this.tetris.score);
     }
 
@@ -343,10 +368,111 @@ export class GameScene extends Phaser.Scene {
     this.gameOverTimer = 2500;
   }
 
+  /** Build slime config, applying GIANT_SLIME boss rule if active. */
+  private buildSlimeConfig(cfg: import('../data/LevelConfig').LevelConfig): import('../data/LevelConfig').SlimeConfig | undefined {
+    const base = cfg.slime;
+    if (!base || cfg.bossRule !== BossRule.GIANT_SLIME) return base;
+    return {
+      ...base,
+      moveSpeed:     base.moveSpeed     * 2,
+      jumpVelocity:  base.jumpVelocity  * 2,
+      maxCount:      base.maxCount + 2,
+      spawnInterval: Math.floor(base.spawnInterval * 0.6),
+    };
+  }
+
+  // ---- Special block effects ----
+
+  /** Process CHEST / POISON effects from a line-clear. */
+  private applyLineClearBlockEffects(types: BlockType[]): void {
+    for (const t of types) {
+      if (t === BlockType.CHEST) {
+        this.grantChestReward();
+      } else if (t === BlockType.POISON) {
+        this.character.takeDamage(1);
+        this.charRenderer.drawHP(this.character.hp, this.character.maxHp);
+        if (!this.character.alive) {
+          this.stateMachine.transition('characterDied');
+          this.triggerGameOver();
+        }
+      }
+    }
+  }
+
+  /** Process an explosion result: score, chest rewards, chain bombs, slime kills, hurt. */
+  private processExplosionResult(result: ExplosionResult): void {
+    if (result.destroyedCells.length > 0) {
+      this.tetris.addBombScore(result.destroyedCells.length, this.upgrades.bombScoreMult);
+      this.uiRenderer.updateScore(this.tetris.score);
+    }
+    for (const _cell of result.chestCells) {
+      this.grantChestReward();
+    }
+    // Chain BOMB_BLOCKs (one level deep to avoid infinite loops)
+    for (const cell of result.chainBombCells) {
+      const chain = this.bombs.triggerChainExplosion(cell.col, cell.row, this.character.x, this.character.y);
+      this.boardRenderer.markDirty();
+      if (chain.destroyedCells.length > 0) {
+        this.tetris.addBombScore(chain.destroyedCells.length, this.upgrades.bombScoreMult);
+        this.uiRenderer.updateScore(this.tetris.score);
+      }
+      for (const _cc of chain.chestCells) this.grantChestReward();
+      const chainSlimes = this.slimes.killSlimesInExplosion(chain.blastCells);
+      if (chainSlimes > 0) {
+        this.tetris.score += Math.floor(SLIME_SCORE * this.upgrades.slimeKillScoreMult) * chainSlimes;
+        this.uiRenderer.updateScore(this.tetris.score);
+      }
+      if (chain.hurtCharDist <= this.bombs.hurtRadius) {
+        this.character.takeDamage(BOMB_DAMAGE);
+        this.charRenderer.drawHP(this.character.hp, this.character.maxHp);
+        if (!this.character.alive) {
+          this.stateMachine.transition('characterDied');
+          this.triggerGameOver();
+        }
+      }
+    }
+    if (result.hurtCharDist <= this.bombs.hurtRadius) {
+      this.character.takeDamage(BOMB_DAMAGE);
+      this.charRenderer.drawHP(this.character.hp, this.character.maxHp);
+      if (!this.character.alive) {
+        this.stateMachine.transition('characterDied');
+        this.triggerGameOver();
+      }
+    }
+    const slimesBlasted = this.slimes.killSlimesInExplosion(result.blastCells);
+    if (slimesBlasted > 0) {
+      this.tetris.score += Math.floor(SLIME_SCORE * this.upgrades.slimeKillScoreMult) * slimesBlasted;
+      this.uiRenderer.updateScore(this.tetris.score);
+    }
+  }
+
+  /** Grant a random reward from a CHEST block. */
+  private grantChestReward(): void {
+    const roll = Math.random();
+    if (roll < 0.35) {
+      // +1 HP
+      this.character.hp = Math.min(this.character.hp + 1, this.character.maxHp);
+      this.charRenderer.drawHP(this.character.hp, this.character.maxHp);
+    } else if (roll < 0.65) {
+      // +1 bomb
+      this.bombs.addBomb();
+      this.charRenderer.drawBombCount(this.bombs.bombCount);
+    } else {
+      // +score bonus
+      this.tetris.score += Math.floor(100 * this.upgrades.lineClearScoreMult * this.tetris.level);
+      this.uiRenderer.updateScore(this.tetris.score);
+    }
+  }
+
   // ---- Slime system ----
 
   private updateSlimes(delta: number): void {
-    const contacts = this.slimes.update(delta, this.character.x, this.character.y, CHAR_WIDTH, CHAR_HEIGHT);
+    const contacts = this.slimes.update(
+      delta,
+      this.character.x, this.character.y, CHAR_WIDTH, CHAR_HEIGHT,
+      this.upgrades.slimeMoveSpeedMult,
+      this.upgrades.slimeJumpVelocityMult,
+    );
     if (contacts.length > 0) {
       this.character.takeDamage(SLIME_DAMAGE);
       this.charRenderer.drawHP(this.character.hp, this.character.maxHp);
@@ -372,34 +498,14 @@ export class GameScene extends Phaser.Scene {
       const explosionResult = this.bombs.explodeBomb(idx, this.character.x, this.character.y);
       this.boardRenderer.markDirty();
 
-      // Score for destroyed blocks
-      if (explosionResult.destroyedCells.length > 0) {
-        this.tetris.addBombScore(explosionResult.destroyedCells.length, this.upgrades.scoreMultiplier);
-        this.uiRenderer.updateScore(this.tetris.score);
-      }
-
       if (idx < this.bombGraphics.length) {
         this.bombGraphics[idx].destroy();
         this.bombGraphics.splice(idx, 1);
       }
-
       const expGfx = this.add.graphics();
       this.explosionGraphics.push(expGfx);
 
-      if (explosionResult.hurtCharDist <= BOMB_HURT_RADIUS) {
-        this.character.takeDamage(BOMB_DAMAGE);
-        this.charRenderer.drawHP(this.character.hp, this.character.maxHp);
-        if (!this.character.alive) {
-          this.stateMachine.transition('characterDied');
-          this.triggerGameOver();
-        }
-      }
-
-      const slimesBlasted = this.slimes.killSlimesInExplosion(explosionResult.blastCells);
-      if (slimesBlasted > 0) {
-        this.tetris.score += Math.floor(SLIME_SCORE * this.upgrades.scoreMultiplier) * slimesBlasted;
-        this.uiRenderer.updateScore(this.tetris.score);
-      }
+      this.processExplosionResult(explosionResult);
     }
 
     this.bombs.updateExplosions(delta);
@@ -428,33 +534,14 @@ export class GameScene extends Phaser.Scene {
       const result = this.bombs.explodeBomb(idx, this.character.x, this.character.y);
       this.boardRenderer.markDirty();
 
-      if (result.destroyedCells.length > 0) {
-        this.tetris.addBombScore(result.destroyedCells.length, this.upgrades.scoreMultiplier);
-        this.uiRenderer.updateScore(this.tetris.score);
-      }
-
       if (idx < this.bombGraphics.length) {
         this.bombGraphics[idx].destroy();
         this.bombGraphics.splice(idx, 1);
       }
-
       const expGfx = this.add.graphics();
       this.explosionGraphics.push(expGfx);
 
-      if (result.hurtCharDist <= BOMB_HURT_RADIUS) {
-        this.character.takeDamage(BOMB_DAMAGE);
-        this.charRenderer.drawHP(this.character.hp, this.character.maxHp);
-        if (!this.character.alive) {
-          this.stateMachine.transition('characterDied');
-          this.triggerGameOver();
-        }
-      }
-
-      const slimesBlasted = this.slimes.killSlimesInExplosion(result.blastCells);
-      if (slimesBlasted > 0) {
-        this.tetris.score += Math.floor(SLIME_SCORE * this.upgrades.scoreMultiplier) * slimesBlasted;
-        this.uiRenderer.updateScore(this.tetris.score);
-      }
+      this.processExplosionResult(result);
     }
   }
 
@@ -485,7 +572,10 @@ export class GameScene extends Phaser.Scene {
     const isGameOver = this.stateMachine.isGameOver();
     const isClearing = this.stateMachine.isClearingLines();
 
-    this.boardRenderer.render(board, isClearing, this.clearedRows, this.clearAnimTimer);
+    this.boardRenderer.render(
+      board, this.boardModel.getBlockTypes(),
+      isClearing, this.clearedRows, this.clearAnimTimer,
+    );
 
     const piece = this.tetris.activePiece;
     if (piece) {

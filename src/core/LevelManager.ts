@@ -3,6 +3,8 @@ import { getLevelConfig, LevelConfig } from '../data/LevelConfig';
 export class LevelManager {
   currentStage: number = 1;
   linesThisStage: number = 0;
+  /** Bonus lines added to target (e.g. from bomb_capacity card penalty) */
+  targetLinesBonus: number = 0;
   private config: LevelConfig;
 
   constructor() {
@@ -20,7 +22,11 @@ export class LevelManager {
   }
 
   getTargetLines(): number {
-    return this.config.targetLines;
+    return this.config.targetLines + this.targetLinesBonus;
+  }
+
+  addTargetLinesBonus(n: number): void {
+    this.targetLinesBonus += n;
   }
 
   getTargetScore(): number {
@@ -40,8 +46,9 @@ export class LevelManager {
   }
 
   reset(): void {
-    this.currentStage  = 1;
-    this.linesThisStage = 0;
+    this.currentStage    = 1;
+    this.linesThisStage  = 0;
+    this.targetLinesBonus = 0;
     this.config = getLevelConfig(1);
   }
 }

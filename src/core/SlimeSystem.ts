@@ -35,8 +35,15 @@ export class SlimeSystem {
     this.spawnTimer = cfg?.firstSpawn ?? 0;
   }
 
-  /** Update all slimes. Returns indices of slimes touching the player. */
-  update(delta: number, charX: number, charY: number, charW: number, charH: number): number[] {
+  /** Update all slimes. Returns indices of slimes touching the player.
+   *  @param moveMult  multiplier applied to slime move speed (from upgrades)
+   *  @param jumpMult  multiplier applied to slime jump velocity magnitude (from upgrades)
+   */
+  update(
+    delta: number,
+    charX: number, charY: number, charW: number, charH: number,
+    moveMult: number = 1.0, jumpMult: number = 1.0,
+  ): number[] {
     if (!this.cfg) return [];
 
     const cfg = this.cfg;
@@ -64,10 +71,12 @@ export class SlimeSystem {
       // Jump toward player when grounded and timer fires
       slime.jumpTimer -= delta;
       if (slime.jumpTimer <= 0 && slime.grounded) {
-        slime.vy = cfg.jumpVelocity;
+        slime.vy = cfg.jumpVelocity * jumpMult;
         slime.grounded = false;
         const slimeCX = slime.x + SLIME_SIZE / 2;
-        slime.vx = slimeCX < charCX ? cfg.moveSpeed : -cfg.moveSpeed;
+        slime.vx = slimeCX < charCX
+          ? cfg.moveSpeed * moveMult
+          : -cfg.moveSpeed * moveMult;
         slime.jumpTimer = cfg.jumpInterval + (Math.random() * 500 - 250);
       }
 

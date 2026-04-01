@@ -38,6 +38,8 @@ export class CharacterPhysics {
   grounded: boolean = false;
   invincibleTimer: number = 0;
   animTime: number = 0;
+  /** Whether the double-jump has been used in the current airborne phase */
+  private doubleJumpUsed: boolean = false;
 
   private boardModel: BoardModel;
   private upgrades: PlayerUpgrades;
@@ -52,7 +54,14 @@ export class CharacterPhysics {
   }
 
   get maxHp(): number {
-    return CHAR_MAX_HP + this.upgrades.maxHpBonus;
+    const base = CHAR_MAX_HP + this.upgrades.maxHpBonus;
+    return this.upgrades.berserkerMode ? Math.min(base, 3) : base;
+  }
+
+  /** Speed/jump multiplier bonus from berserker mode (0 when not active). */
+  private get berserkerBonus(): number {
+    if (!this.upgrades.berserkerMode || this.maxHp <= 0) return 0;
+    return (1 - this.hp / this.maxHp) * 0.5;
   }
 
   getCharCenterX(): number { return this.x + CHAR_WIDTH  / 2; }
@@ -63,13 +72,23 @@ export class CharacterPhysics {
     const dt = Math.min(delta, MAX_DELTA_MS) / 1000;
     this.animTime += dt;
 
+    const speedMult = this.upgrades.moveSpeedMult * (1 + this.berserkerBonus);
+    const jumpMult  = this.upgrades.jumpVelocityMult * (1 + this.berserkerBonus);
+
     this.vx = 0;
-    if (input.moveLeft)  this.vx = -CHAR_MOVE_SPEED * this.upgrades.moveSpeedMult;
-    if (input.moveRight) this.vx =  CHAR_MOVE_SPEED * this.upgrades.moveSpeedMult;
-    if (input.jump && this.grounded) {
-      this.vy      = CHAR_JUMP_VELOCITY * this.upgrades.jumpVelocityMult;
-      this.grounded = false;
+    if (input.moveLeft)  this.vx = -CHAR_MOVE_SPEED * speedMult;
+    if (input.moveRight) this.vx =  CHAR_MOVE_SPEED * speedMult;
+    if (input.jump) {
+      if (this.grounded) {
+        this.vy             = CHAR_JUMP_VELOCITY * jumpMult;
+        this.grounded       = false;
+        this.doubleJumpUsed = false;
+      } else if (this.upgrades.doubleJumpEnabled && !this.doubleJumpUsed) {
+        this.vy             = CHAR_JUMP_VELOCITY * jumpMult;
+        this.doubleJumpUsed = true;
+      }
     }
+    if (this.grounded) this.doubleJumpUsed = false;
 
     this.vy += CHAR_GRAVITY * dt;
 
@@ -148,6 +167,7 @@ export class CharacterPhysics {
     this.invincibleTimer = 0;
     this.grounded        = false;
     this.animTime        = 0;
+    this.doubleJumpUsed  = false;
     this.spawnAtBottom();
   }
 
