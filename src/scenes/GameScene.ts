@@ -92,9 +92,12 @@ export class GameScene extends Phaser.Scene {
     this.load.audio('place',    'audio/place.ogg');
   }
 
-  create(data: { level?: number }): void {
+  private currentNodeId: string = '';
+
+  create(data: { level?: number; nodeId?: string }): void {
     // Get level from scene data
-    this.currentLevel = data.level ?? 1;
+    this.currentLevel  = data.level  ?? 1;
+    this.currentNodeId = data.nodeId ?? String(data.level ?? 1);
 
     // Player upgrades (must be created before character/bombs)
     this.upgrades      = new PlayerUpgrades();
@@ -247,13 +250,15 @@ export class GameScene extends Phaser.Scene {
                 this.levelManager.addTargetLinesBonus(2);
               }
 
-              // Mark level as cleared and return to level select
+              // Mark level as cleared and return to map
               this.levelProgress.markCleared(this.currentLevel);
+              this.levelProgress.markNodeCleared(this.currentNodeId);
               this.scene.start('LevelSelectScene');
             });
           } else {
-            // Already cleared: return to level select immediately
+            // Already cleared: return to map immediately
             this.levelProgress.markCleared(this.currentLevel);
+            this.levelProgress.markNodeCleared(this.currentNodeId);
             this.scene.start('LevelSelectScene');
           }
         } else {

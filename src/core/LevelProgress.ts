@@ -6,6 +6,8 @@ export class LevelProgress {
 
   unlockedLevel: number = 1;
   clearedLevels: Set<number> = new Set();
+  /** Map node IDs the player has cleared (tracks branch choices) */
+  clearedNodes: Set<string> = new Set();
 
   static getInstance(): LevelProgress {
     if (!LevelProgress.instance) {
@@ -36,9 +38,19 @@ export class LevelProgress {
     this.save();
   }
 
+  markNodeCleared(nodeId: string): void {
+    this.clearedNodes.add(nodeId);
+    this.save();
+  }
+
+  isNodeCleared(nodeId: string): boolean {
+    return this.clearedNodes.has(nodeId);
+  }
+
   reset(): void {
     this.unlockedLevel = 1;
     this.clearedLevels.clear();
+    this.clearedNodes.clear();
     this.save();
   }
 
@@ -46,6 +58,7 @@ export class LevelProgress {
     const data = {
       unlockedLevel: this.unlockedLevel,
       clearedLevels: Array.from(this.clearedLevels),
+      clearedNodes: Array.from(this.clearedNodes),
     };
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
@@ -61,6 +74,7 @@ export class LevelProgress {
         const data = JSON.parse(raw);
         this.unlockedLevel = data.unlockedLevel ?? 1;
         this.clearedLevels = new Set(data.clearedLevels ?? []);
+        this.clearedNodes  = new Set(data.clearedNodes  ?? []);
       }
     } catch {
       // Ignore parse errors, use defaults
