@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { TETROMINOES, BOMB_DAMAGE, CLEAR_ANIM_DURATION, CHAR_WIDTH, CHAR_HEIGHT, SLIME_DAMAGE, SLIME_SCORE } from '../constants';
 import { BlockType } from '../core/BlockType';
+import { ExplosionResult } from '../core/BombSystem';
 import { BoardModel } from '../core/BoardModel';
 import { TetrisEngine, ActivePiece } from '../core/TetrisEngine';
 import { CharacterPhysics, CharacterInput } from '../core/CharacterPhysics';
@@ -8,7 +9,8 @@ import { BombSystem } from '../core/BombSystem';
 import { GameStateMachine, GameState } from '../core/GameStateMachine';
 import { LevelManager } from '../core/LevelManager';
 import { LevelProgress } from '../core/LevelProgress';
-import { PlayerUpgrades, pickRandomCards } from '../core/PlayerUpgrades';
+import { PlayerUpgrades, pickRandomCards, BOSS_UPGRADE_CARDS } from '../core/PlayerUpgrades';
+import { BossRule } from '../data/LevelConfig';
 import { SlimeSystem } from '../core/SlimeSystem';
 import { BoardRenderer } from '../rendering/BoardRenderer';
 import { PieceRenderer, PieceRenderInfo } from '../rendering/PieceRenderer';
@@ -34,6 +36,7 @@ export class GameScene extends Phaser.Scene {
   private levelManager!: LevelManager;
   private levelProgress!: LevelProgress;
   private currentLevel: number = 1;
+  private activeBossRule: BossRule = BossRule.NONE;
   private upgrades!: PlayerUpgrades;
 
   // Rendering
@@ -99,12 +102,16 @@ export class GameScene extends Phaser.Scene {
     this.levelManager.setStage(this.currentLevel);
     this.levelProgress = LevelProgress.getInstance();
 
+    // Boss rule for this level
+    const levelCfg = this.levelManager.getConfig();
+    this.activeBossRule = levelCfg.bossRule;
+
     // Core systems
     this.boardModel   = new BoardModel();
     this.tetris       = new TetrisEngine(this.boardModel);
     this.character    = new CharacterPhysics(this.boardModel, this.upgrades);
     this.bombs        = new BombSystem(this.boardModel, this.upgrades);
-    this.slimes       = new SlimeSystem(this.boardModel, this.levelManager.getConfig().slime);
+    this.slimes       = new SlimeSystem(this.boardModel, this.buildSlimeConfig(levelCfg));
     this.stateMachine = new GameStateMachine();
 
     // Touch controls
@@ -177,8 +184,8 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // --- Bomb placement ---
-    if (charInput.bomb) {
+    // --- Bomb placement (disabled in BOMB_DISABLED boss stages) ---
+    if (charInput.bomb && this.activeBossRule !== BossRule.BOMB_DISABLED) {
       this.bombs.placeBomb(this.character.x, this.character.y);
       this.charRenderer.drawBombCount(this.bombs.bombCount);
     }
@@ -219,8 +226,11 @@ export class GameScene extends Phaser.Scene {
           const isFirstClear = this.levelProgress.isFirstClear(this.currentLevel);
 
           if (isFirstClear) {
-            // First clear: show card selection
-            const cards = pickRandomCards(3);
+            // First clear: boss levels show rare cards, normal levels show standard cards
+            const isBoss = this.levelManager.getConfig().isBoss;
+            const cards = isBoss
+              ? [...BOSS_UPGRADE_CARDS].sort(() => Math.random() - 0.5).slice(0, Math.min(2, BOSS_UPGRADE_CARDS.length))
+              : pickRandomCards(3);
             this.cardOverlay.show(cards, this.currentLevel, (card) => {
               this.upgrades.applyCard(card);
 
@@ -351,6 +361,19 @@ export class GameScene extends Phaser.Scene {
   private triggerGameOver(): void {
     this.uiRenderer.showGameOver();
     this.gameOverTimer = 2500;
+  }
+
+  /** Build slime config, applying GIANT_SLIME boss rule if active. */
+  private buildSlimeConfig(cfg: import('../data/LevelConfig').LevelConfig): import('../data/LevelConfig').SlimeConfig | undefined {
+    const base = cfg.slime;
+    if (!base || cfg.bossRule !== BossRule.GIANT_SLIME) return base;
+    return {
+      ...base,
+      moveSpeed:     base.moveSpeed     * 2,
+      jumpVelocity:  base.jumpVelocity  * 2,
+      maxCount:      base.maxCount + 2,
+      spawnInterval: Math.floor(base.spawnInterval * 0.6),
+    };
   }
 
   // ---- Special block effects ----

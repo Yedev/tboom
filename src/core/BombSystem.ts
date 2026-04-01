@@ -174,6 +174,18 @@ export class BombSystem {
 
     this.bombs.splice(bombIndex, 1);
 
+    // chain_bomb upgrade: detonate any placed bombs caught in the blast
+    if (this.upgrades.chainBombEnabled) {
+      for (let i = this.bombs.length - 1; i >= 0; i--) {
+        const nb = this.bombs[i];
+        const nc = Math.floor((nb.x + BOMB_SIZE / 2 - BOARD_X) / BLOCK_SIZE);
+        const nr = Math.floor((nb.y + BOMB_SIZE / 2 - BOARD_Y) / BLOCK_SIZE);
+        if (Math.abs(nc - bCol) <= blastRadius && Math.abs(nr - bRow) <= blastRadius) {
+          this.bombs[i].timer = 0; // trigger immediately on next update tick
+        }
+      }
+    }
+
     return {
       destroyedCells,
       chestCells,

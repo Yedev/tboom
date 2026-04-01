@@ -5,7 +5,10 @@ export type UpgradeId =
   | 'bomb_radius'
   | 'bomb_capacity'
   | 'score_multiplier'
-  | 'double_jump';
+  | 'double_jump'
+  // Rare (BOSS-only) cards
+  | 'chain_bomb'
+  | 'berserker';
 
 export interface UpgradeCard {
   id: UpgradeId;
@@ -39,6 +42,12 @@ export class PlayerUpgrades {
   /** Multiplier applied to slime jump velocity magnitude (>1 = higher) */
   slimeJumpVelocityMult: number = 1.0;
 
+  // ---- Rare card effect fields ----
+  /** chain_bomb: bomb blasts that hit a placed bomb trigger it immediately */
+  chainBombEnabled: boolean = false;
+  /** berserker: speed/jump scale up as HP decreases; but maxHP is capped at 3 */
+  berserkerMode: boolean = false;
+
   applyCard(card: UpgradeCard): void {
     switch (card.id) {
       case 'jump_boost':
@@ -69,6 +78,14 @@ export class PlayerUpgrades {
         this.doubleJumpEnabled      = true;
         this.slimeJumpVelocityMult += 0.50;
         break;
+      case 'chain_bomb':
+        this.chainBombEnabled        = true;
+        this.bombSelfHurtRadiusBonus += 1;
+        break;
+      case 'berserker':
+        this.berserkerMode = true;
+        // maxHP cap of 3 enforced in CharacterPhysics.maxHp getter
+        break;
     }
   }
 
@@ -85,6 +102,8 @@ export class PlayerUpgrades {
     this.bombSelfHurtRadiusBonus = 0;
     this.slimeMoveSpeedMult      = 1.0;
     this.slimeJumpVelocityMult   = 1.0;
+    this.chainBombEnabled        = false;
+    this.berserkerMode           = false;
   }
 }
 
@@ -137,6 +156,23 @@ export const ALL_UPGRADE_CARDS: UpgradeCard[] = [
     description: '空中可再次跳跃',
     negativeDescription: '史莱姆跳跃高度 +50%',
     color: 0x00ddff,
+  },
+];
+
+export const BOSS_UPGRADE_CARDS: UpgradeCard[] = [
+  {
+    id: 'chain_bomb',
+    name: '连锁炸弹',
+    description: '爆炸引爆范围内的炸弹',
+    negativeDescription: '自伤范围 +1格',
+    color: 0xff2200,
+  },
+  {
+    id: 'berserker',
+    name: '狂战士',
+    description: '血量越低移动/跳跃越快(最高+50%)',
+    negativeDescription: '最大血量上限降至 3',
+    color: 0xdd0066,
   },
 ];
 
