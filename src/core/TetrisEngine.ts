@@ -5,6 +5,7 @@ import {
   TETROMINOES, WALL_KICKS, I_WALL_KICKS, LINE_SCORES, BOMB_BLOCK_SCORE,
 } from '../constants';
 import { BoardModel } from './BoardModel';
+import { BlockType, randomBlockType } from './BlockType';
 
 export interface ActivePiece {
   type: number;
@@ -139,6 +140,7 @@ export class TetrisEngine {
           const boardX = this.activePiece.x + c;
           if (boardY >= 0 && boardY < ROWS && boardX >= 0 && boardX < COLS) {
             board[boardY][boardX] = shape[r][c];
+            this.boardModel.setBlockType(boardY, boardX, randomBlockType(this.level));
             cells.push({ row: boardY, col: boardX, value: shape[r][c] });
           }
         }

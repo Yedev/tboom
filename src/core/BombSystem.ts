@@ -9,6 +9,7 @@ import {
 } from '../constants';
 import { BoardModel } from './BoardModel';
 import { PlayerUpgrades } from './PlayerUpgrades';
+import { BlockType } from './BlockType';
 
 export interface BombData {
   x: number;
@@ -25,6 +26,10 @@ export interface ExplosionData {
 
 export interface ExplosionResult {
   destroyedCells: { col: number; row: number }[];
+  /** Cells that were CHEST blocks and should grant rewards */
+  chestCells: { col: number; row: number }[];
+  /** Cells that were BOMB_BLOCK and should chain-explode */
+  chainBombCells: { col: number; row: number }[];
   blastCells: { col: number; row: number }[];
   bombCol: number;
   bombRow: number;
@@ -130,13 +135,21 @@ export class BombSystem {
     const blastRadius = BOMB_BLAST_RADIUS + this.upgrades.bombBlastRadiusBonus;
 
     const destroyedCells: { col: number; row: number }[] = [];
+    const chestCells: { col: number; row: number }[] = [];
+    const chainBombCells: { col: number; row: number }[] = [];
+
     for (let dr = -blastRadius; dr <= blastRadius; dr++) {
       for (let dc = -blastRadius; dc <= blastRadius; dc++) {
         const r = bRow + dr;
         const c = bCol + dc;
         if (r >= 0 && r < ROWS && c >= 0 && c < COLS && board[r][c] !== 0) {
+          const btype = this.boardModel.getBlockType(r, c);
+          if (btype === BlockType.HARD) continue;  // immune to bombs
           board[r][c] = 0;
+          this.boardModel.setBlockType(r, c, BlockType.NORMAL);
           destroyedCells.push({ col: c, row: r });
+          if (btype === BlockType.CHEST)      chestCells.push({ col: c, row: r });
+          if (btype === BlockType.BOMB_BLOCK) chainBombCells.push({ col: c, row: r });
         }
       }
     }
@@ -163,11 +176,58 @@ export class BombSystem {
 
     return {
       destroyedCells,
+      chestCells,
+      chainBombCells,
       blastCells: allCells,
       bombCol: bCol,
       bombRow: bRow,
       hurtCharDist: dist,
     };
+  }
+
+  /**
+   * Trigger a chain explosion at a specific board cell (e.g. from BOMB_BLOCK).
+   * Uses base blast radius only (no upgrade bonus to keep chains manageable).
+   */
+  triggerChainExplosion(bCol: number, bRow: number, charX: number, charY: number): ExplosionResult {
+    const board = this.boardModel.getBoard();
+    const blastRadius = BOMB_BLAST_RADIUS;
+
+    const destroyedCells: { col: number; row: number }[] = [];
+    const chestCells: { col: number; row: number }[] = [];
+    const chainBombCells: { col: number; row: number }[] = [];
+
+    for (let dr = -blastRadius; dr <= blastRadius; dr++) {
+      for (let dc = -blastRadius; dc <= blastRadius; dc++) {
+        const r = bRow + dr;
+        const c = bCol + dc;
+        if (r >= 0 && r < ROWS && c >= 0 && c < COLS && board[r][c] !== 0) {
+          const btype = this.boardModel.getBlockType(r, c);
+          if (btype === BlockType.HARD) continue;
+          board[r][c] = 0;
+          this.boardModel.setBlockType(r, c, BlockType.NORMAL);
+          destroyedCells.push({ col: c, row: r });
+          if (btype === BlockType.CHEST)      chestCells.push({ col: c, row: r });
+          if (btype === BlockType.BOMB_BLOCK) chainBombCells.push({ col: c, row: r });
+        }
+      }
+    }
+
+    const allCells: { col: number; row: number }[] = [];
+    for (let dr = -blastRadius; dr <= blastRadius; dr++) {
+      for (let dc = -blastRadius; dc <= blastRadius; dc++) {
+        const r = bRow + dr;
+        const c = bCol + dc;
+        if (r >= 0 && r < ROWS && c >= 0 && c < COLS) allCells.push({ col: c, row: r });
+      }
+    }
+    this.explosions.push({ cells: allCells, timer: BOMB_EXPLOSION_DURATION });
+
+    const charCol = (charX + CHAR_WIDTH  / 2 - BOARD_X) / BLOCK_SIZE;
+    const charRow = (charY + CHAR_HEIGHT / 2 - BOARD_Y) / BLOCK_SIZE;
+    const dist = Math.max(Math.abs(charCol - bCol), Math.abs(charRow - bRow));
+
+    return { destroyedCells, chestCells, chainBombCells, blastCells: allCells, bombCol: bCol, bombRow: bRow, hurtCharDist: dist };
   }
 
   updateExplosions(delta: number): void {
