@@ -214,7 +214,6 @@ export class GameScene extends Phaser.Scene {
         this.uiRenderer.updateAll(this.tetris.score, this.tetris.level, this.tetris.lines);
 
         const linesGoalMet  = this.levelManager.onLinesCleared(this.clearedRows.length);
-        const stageComplete = linesGoalMet && this.tetris.score >= this.levelManager.getTargetScore();
         this.uiRenderer.updateStage(
           this.levelManager.currentStage,
           this.levelManager.linesThisStage,
@@ -222,45 +221,35 @@ export class GameScene extends Phaser.Scene {
           this.levelManager.getTargetScore(),
         );
 
-        if (stageComplete) {
+        if (linesGoalMet) {
           this.stateMachine.transition('stageClear');
           this.boardRenderer.markDirty();
 
-          const isFirstClear = this.levelProgress.isFirstClear(this.currentLevel);
+          // Always show card selection on level complete
+          const isBoss = this.levelManager.getConfig().isBoss;
+          const cards = isBoss
+            ? [...BOSS_UPGRADE_CARDS].sort(() => Math.random() - 0.5).slice(0, Math.min(2, BOSS_UPGRADE_CARDS.length))
+            : pickRandomCards(3);
+          this.cardOverlay.show(cards, this.currentLevel, (card) => {
+            this.upgrades.applyCard(card);
 
-          if (isFirstClear) {
-            // First clear: boss levels show rare cards, normal levels show standard cards
-            const isBoss = this.levelManager.getConfig().isBoss;
-            const cards = isBoss
-              ? [...BOSS_UPGRADE_CARDS].sort(() => Math.random() - 0.5).slice(0, Math.min(2, BOSS_UPGRADE_CARDS.length))
-              : pickRandomCards(3);
-            this.cardOverlay.show(cards, this.currentLevel, (card) => {
-              this.upgrades.applyCard(card);
+            // HP boost also heals immediately
+            if (card.id === 'hp_boost') {
+              this.character.hp = Math.min(
+                this.character.hp + 2,
+                this.character.maxHp,
+              );
+            }
 
-              // HP boost also heals immediately
-              if (card.id === 'hp_boost') {
-                this.character.hp = Math.min(
-                  this.character.hp + 2,
-                  this.character.maxHp,
-                );
-              }
+            // bomb_capacity negative effect: target lines +2
+            if (card.id === 'bomb_capacity') {
+              this.levelManager.addTargetLinesBonus(2);
+            }
 
-              // bomb_capacity negative effect: target lines +2
-              if (card.id === 'bomb_capacity') {
-                this.levelManager.addTargetLinesBonus(2);
-              }
-
-              // Mark level as cleared and return to map
-              this.levelProgress.markCleared(this.currentLevel);
-              this.levelProgress.markNodeCleared(this.currentNodeId);
-              this.scene.start('LevelSelectScene');
-            });
-          } else {
-            // Already cleared: return to map immediately
             this.levelProgress.markCleared(this.currentLevel);
             this.levelProgress.markNodeCleared(this.currentNodeId);
             this.scene.start('LevelSelectScene');
-          }
+          });
         } else {
           this.stateMachine.transition('animDone');
           this.boardRenderer.markDirty();
