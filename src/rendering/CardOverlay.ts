@@ -85,12 +85,25 @@ export class CardOverlay {
     }).setOrigin(0.5);
     this.container.add(nameText);
 
-    // Description
-    const desc = scene.add.text(cx + CARD_W / 2, cy + 70, card.description, {
-      fontSize: '14px', fontFamily: 'monospace',
-      color: '#ddeeff', wordWrap: { width: CARD_W - 16 }, align: 'center',
+    // Positive description (green)
+    const desc = scene.add.text(cx + CARD_W / 2, cy + 58, `✦ ${card.description}`, {
+      fontSize: '13px', fontFamily: 'monospace',
+      color: '#66ff88', wordWrap: { width: CARD_W - 16 }, align: 'center',
     }).setOrigin(0.5, 0);
     this.container.add(desc);
+
+    // Divider
+    const divider = scene.add.graphics();
+    divider.lineStyle(1, 0x334455, 0.8);
+    divider.lineBetween(cx + 10, cy + 118, cx + CARD_W - 10, cy + 118);
+    this.container.add(divider);
+
+    // Negative description (red)
+    const negDesc = scene.add.text(cx + CARD_W / 2, cy + 126, `✦ ${card.negativeDescription}`, {
+      fontSize: '13px', fontFamily: 'monospace',
+      color: '#ff6655', wordWrap: { width: CARD_W - 16 }, align: 'center',
+    }).setOrigin(0.5, 0);
+    this.container.add(negDesc);
 
     // Click hint
     const hint = scene.add.text(cx + CARD_W / 2, cy + CARD_H - 22, '点击选择', {

@@ -240,11 +240,11 @@ export class TetrisEngine {
     return this.boardModel.getFullRows();
   }
 
-  clearLines(rows: number[]): void {
+  clearLines(rows: number[], lineClearScoreMult: number = 1.0): void {
     this.boardModel.removeRows(rows);
     const count = rows.length;
     this.lines += count;
-    this.score += LINE_SCORES[count] * this.level;
+    this.score += Math.floor(LINE_SCORES[count] * this.level * lineClearScoreMult);
     const newLevel = Math.floor(this.lines / 10) + 1;
     if (newLevel > this.level) {
       this.level = newLevel;

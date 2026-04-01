@@ -38,6 +38,8 @@ export class CharacterPhysics {
   grounded: boolean = false;
   invincibleTimer: number = 0;
   animTime: number = 0;
+  /** Whether the double-jump has been used in the current airborne phase */
+  private doubleJumpUsed: boolean = false;
 
   private boardModel: BoardModel;
   private upgrades: PlayerUpgrades;
@@ -66,10 +68,17 @@ export class CharacterPhysics {
     this.vx = 0;
     if (input.moveLeft)  this.vx = -CHAR_MOVE_SPEED * this.upgrades.moveSpeedMult;
     if (input.moveRight) this.vx =  CHAR_MOVE_SPEED * this.upgrades.moveSpeedMult;
-    if (input.jump && this.grounded) {
-      this.vy      = CHAR_JUMP_VELOCITY * this.upgrades.jumpVelocityMult;
-      this.grounded = false;
+    if (input.jump) {
+      if (this.grounded) {
+        this.vy             = CHAR_JUMP_VELOCITY * this.upgrades.jumpVelocityMult;
+        this.grounded       = false;
+        this.doubleJumpUsed = false;
+      } else if (this.upgrades.doubleJumpEnabled && !this.doubleJumpUsed) {
+        this.vy             = CHAR_JUMP_VELOCITY * this.upgrades.jumpVelocityMult;
+        this.doubleJumpUsed = true;
+      }
     }
+    if (this.grounded) this.doubleJumpUsed = false;
 
     this.vy += CHAR_GRAVITY * dt;
 
@@ -148,6 +157,7 @@ export class CharacterPhysics {
     this.invincibleTimer = 0;
     this.grounded        = false;
     this.animTime        = 0;
+    this.doubleJumpUsed  = false;
     this.spawnAtBottom();
   }
 

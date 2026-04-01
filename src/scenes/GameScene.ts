@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { TETROMINOES, BOMB_HURT_RADIUS, BOMB_DAMAGE, CLEAR_ANIM_DURATION, CHAR_WIDTH, CHAR_HEIGHT, SLIME_DAMAGE, SLIME_SCORE } from '../constants';
+import { TETROMINOES, BOMB_DAMAGE, CLEAR_ANIM_DURATION, CHAR_WIDTH, CHAR_HEIGHT, SLIME_DAMAGE, SLIME_SCORE } from '../constants';
 import { BoardModel } from '../core/BoardModel';
 import { TetrisEngine, ActivePiece } from '../core/TetrisEngine';
 import { CharacterPhysics, CharacterInput } from '../core/CharacterPhysics';
@@ -195,7 +195,7 @@ export class GameScene extends Phaser.Scene {
         this.boardModel.getBoard(), true, this.clearedRows, this.clearAnimTimer,
       );
       if (this.clearAnimTimer > CLEAR_ANIM_DURATION) {
-        this.tetris.clearLines(this.clearedRows);
+        this.tetris.clearLines(this.clearedRows, this.upgrades.lineClearScoreMult);
         this.uiRenderer.updateAll(this.tetris.score, this.tetris.level, this.tetris.lines);
 
         const linesGoalMet  = this.levelManager.onLinesCleared(this.clearedRows.length);
@@ -225,6 +225,11 @@ export class GameScene extends Phaser.Scene {
                   this.character.hp + 2,
                   this.character.maxHp,
                 );
+              }
+
+              // bomb_capacity negative effect: target lines +2
+              if (card.id === 'bomb_capacity') {
+                this.levelManager.addTargetLinesBonus(2);
               }
 
               // Mark level as cleared and return to level select
@@ -314,7 +319,7 @@ export class GameScene extends Phaser.Scene {
     // Kill slimes crushed by the locked piece
     const slimesCrushed = this.slimes.killSlimesUnderPiece();
     if (slimesCrushed > 0) {
-      this.tetris.score += Math.floor(SLIME_SCORE * this.upgrades.scoreMultiplier) * slimesCrushed;
+      this.tetris.score += Math.floor(SLIME_SCORE * this.upgrades.slimeKillScoreMult) * slimesCrushed;
       this.uiRenderer.updateScore(this.tetris.score);
     }
 
@@ -346,7 +351,12 @@ export class GameScene extends Phaser.Scene {
   // ---- Slime system ----
 
   private updateSlimes(delta: number): void {
-    const contacts = this.slimes.update(delta, this.character.x, this.character.y, CHAR_WIDTH, CHAR_HEIGHT);
+    const contacts = this.slimes.update(
+      delta,
+      this.character.x, this.character.y, CHAR_WIDTH, CHAR_HEIGHT,
+      this.upgrades.slimeMoveSpeedMult,
+      this.upgrades.slimeJumpVelocityMult,
+    );
     if (contacts.length > 0) {
       this.character.takeDamage(SLIME_DAMAGE);
       this.charRenderer.drawHP(this.character.hp, this.character.maxHp);
@@ -374,7 +384,7 @@ export class GameScene extends Phaser.Scene {
 
       // Score for destroyed blocks
       if (explosionResult.destroyedCells.length > 0) {
-        this.tetris.addBombScore(explosionResult.destroyedCells.length, this.upgrades.scoreMultiplier);
+        this.tetris.addBombScore(explosionResult.destroyedCells.length, this.upgrades.bombScoreMult);
         this.uiRenderer.updateScore(this.tetris.score);
       }
 
@@ -386,7 +396,7 @@ export class GameScene extends Phaser.Scene {
       const expGfx = this.add.graphics();
       this.explosionGraphics.push(expGfx);
 
-      if (explosionResult.hurtCharDist <= BOMB_HURT_RADIUS) {
+      if (explosionResult.hurtCharDist <= this.bombs.hurtRadius) {
         this.character.takeDamage(BOMB_DAMAGE);
         this.charRenderer.drawHP(this.character.hp, this.character.maxHp);
         if (!this.character.alive) {
@@ -397,7 +407,7 @@ export class GameScene extends Phaser.Scene {
 
       const slimesBlasted = this.slimes.killSlimesInExplosion(explosionResult.blastCells);
       if (slimesBlasted > 0) {
-        this.tetris.score += Math.floor(SLIME_SCORE * this.upgrades.scoreMultiplier) * slimesBlasted;
+        this.tetris.score += Math.floor(SLIME_SCORE * this.upgrades.slimeKillScoreMult) * slimesBlasted;
         this.uiRenderer.updateScore(this.tetris.score);
       }
     }
@@ -429,7 +439,7 @@ export class GameScene extends Phaser.Scene {
       this.boardRenderer.markDirty();
 
       if (result.destroyedCells.length > 0) {
-        this.tetris.addBombScore(result.destroyedCells.length, this.upgrades.scoreMultiplier);
+        this.tetris.addBombScore(result.destroyedCells.length, this.upgrades.bombScoreMult);
         this.uiRenderer.updateScore(this.tetris.score);
       }
 
@@ -441,7 +451,7 @@ export class GameScene extends Phaser.Scene {
       const expGfx = this.add.graphics();
       this.explosionGraphics.push(expGfx);
 
-      if (result.hurtCharDist <= BOMB_HURT_RADIUS) {
+      if (result.hurtCharDist <= this.bombs.hurtRadius) {
         this.character.takeDamage(BOMB_DAMAGE);
         this.charRenderer.drawHP(this.character.hp, this.character.maxHp);
         if (!this.character.alive) {
@@ -452,7 +462,7 @@ export class GameScene extends Phaser.Scene {
 
       const slimesBlasted = this.slimes.killSlimesInExplosion(result.blastCells);
       if (slimesBlasted > 0) {
-        this.tetris.score += Math.floor(SLIME_SCORE * this.upgrades.scoreMultiplier) * slimesBlasted;
+        this.tetris.score += Math.floor(SLIME_SCORE * this.upgrades.slimeKillScoreMult) * slimesBlasted;
         this.uiRenderer.updateScore(this.tetris.score);
       }
     }

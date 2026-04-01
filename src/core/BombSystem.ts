@@ -2,7 +2,7 @@ import {
   COLS, ROWS, BLOCK_SIZE, BOARD_X, BOARD_Y,
   CHAR_WIDTH, CHAR_HEIGHT,
   BOMB_SIZE, BOMB_GRAVITY, BOMB_FUSE_TIME,
-  BOMB_BLAST_RADIUS, BOMB_HURT_RADIUS, BOMB_DAMAGE,
+  BOMB_BLAST_RADIUS, BOMB_HURT_RADIUS as BASE_BOMB_HURT_RADIUS, BOMB_DAMAGE,
   BOMB_EXPLOSION_DURATION, MAX_DELTA_MS, BOMB_TICK_TIMINGS,
   BOMB_MAX_COUNT,
   TETROMINOES,
@@ -46,6 +46,10 @@ export class BombSystem {
 
   get maxBombs(): number {
     return BOMB_MAX_COUNT + this.upgrades.bombMaxCountBonus;
+  }
+
+  get hurtRadius(): number {
+    return BASE_BOMB_HURT_RADIUS + this.upgrades.bombSelfHurtRadiusBonus;
   }
 
   addBomb(): void {
