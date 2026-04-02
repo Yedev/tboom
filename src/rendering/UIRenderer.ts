@@ -4,6 +4,7 @@ import {
   BOARD_BORDER_WIDTH, BOARD_BORDER_COLOR, GRID_LINE_WIDTH, GRID_LINE_COLOR,
   PIECE_COLORS, PIECE_BORDER_COLORS,
 } from '../constants';
+import { UpgradeCard } from '../core/PlayerUpgrades';
 
 // Panel layout — all offsets from BOARD_Y
 const Y_SCORE_LABEL  = 0;
@@ -21,6 +22,8 @@ const Y_NEXT_PREVIEW = 254;
 const Y_HP_LABEL     = 324;
 const Y_BOMB_LABEL   = 364;
 const Y_CONTROLS     = 434;
+const Y_CARDS_LABEL  = 598;
+const Y_CARDS_START  = 616;
 
 export class UIRenderer {
   private scene: Phaser.Scene;
@@ -32,6 +35,8 @@ export class UIRenderer {
   private stageGoalText!: Phaser.GameObjects.Text;
   private nextPreview!: Phaser.GameObjects.Graphics;
   private gameOverOverlay!: Phaser.GameObjects.Container;
+  private cardSlots: Phaser.GameObjects.Graphics[] = [];
+  private cardTexts: Phaser.GameObjects.Text[] = [];
 
   constructor(scene: Phaser.Scene) {
     this.scene = scene;
@@ -105,6 +110,25 @@ export class UIRenderer {
     scene.add.text(PANEL_X, hy + 112, 'P     Pause',      helpStyle);
     scene.add.text(PANEL_X, hy + 128, 'R     Restart',    helpStyle);
 
+    // Cards section
+    scene.add.text(PANEL_X, BOARD_Y + Y_CARDS_LABEL, 'CARDS', titleStyle);
+    const SLOT_H = 18;
+    const SLOT_GAP = 2;
+    for (let i = 0; i < 5; i++) {
+      const sy = BOARD_Y + Y_CARDS_START + i * (SLOT_H + SLOT_GAP);
+      const gfx = scene.add.graphics();
+      gfx.fillStyle(0x1a1a2e, 1);
+      gfx.fillRoundedRect(PANEL_X, sy, 118, SLOT_H, 3);
+      gfx.lineStyle(1, 0x334455, 0.5);
+      gfx.strokeRoundedRect(PANEL_X, sy, 118, SLOT_H, 3);
+      this.cardSlots.push(gfx);
+
+      const txt = scene.add.text(PANEL_X + 4, sy + 3, '', {
+        fontSize: '11px', fontFamily: 'monospace', color: '#334455',
+      });
+      this.cardTexts.push(txt);
+    }
+
     // Game over overlay
     this.gameOverOverlay = scene.add.container(scene.scale.width / 2, scene.scale.height / 2);
     this.gameOverOverlay.setVisible(false);
@@ -163,6 +187,33 @@ export class UIRenderer {
           this.nextPreview.fillRect(px, py, previewSize, 2);
           this.nextPreview.fillRect(px, py, 2, previewSize);
         }
+      }
+    }
+  }
+
+  drawCards(cards: UpgradeCard[]): void {
+    const SLOT_H = 18;
+    const SLOT_GAP = 2;
+    for (let i = 0; i < 5; i++) {
+      const sy   = BOARD_Y + Y_CARDS_START + i * (SLOT_H + SLOT_GAP);
+      const card = cards[i];
+      const gfx  = this.cardSlots[i];
+      const txt  = this.cardTexts[i];
+      if (!gfx || !txt) continue;
+
+      gfx.clear();
+      if (card) {
+        gfx.fillStyle(card.color, 0.25);
+        gfx.fillRoundedRect(PANEL_X, sy, 118, SLOT_H, 3);
+        gfx.lineStyle(1, card.color, 0.8);
+        gfx.strokeRoundedRect(PANEL_X, sy, 118, SLOT_H, 3);
+        txt.setText(card.name).setColor('#ffffff');
+      } else {
+        gfx.fillStyle(0x1a1a2e, 1);
+        gfx.fillRoundedRect(PANEL_X, sy, 118, SLOT_H, 3);
+        gfx.lineStyle(1, 0x334455, 0.5);
+        gfx.strokeRoundedRect(PANEL_X, sy, 118, SLOT_H, 3);
+        txt.setText('').setColor('#334455');
       }
     }
   }
