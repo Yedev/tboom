@@ -9,7 +9,8 @@ import { BombSystem } from '../core/BombSystem';
 import { GameStateMachine, GameState } from '../core/GameStateMachine';
 import { LevelManager } from '../core/LevelManager';
 import { LevelProgress } from '../core/LevelProgress';
-import { PlayerUpgrades, pickRandomCards, BOSS_UPGRADE_CARDS } from '../core/PlayerUpgrades';
+import { PlayerUpgrades } from '../core/PlayerUpgrades';
+import { PlayerInventory, computeGoldReward } from '../core/PlayerInventory';
 import { BossRule } from '../data/LevelConfig';
 import { SlimeSystem } from '../core/SlimeSystem';
 import { BoardRenderer } from '../rendering/BoardRenderer';
@@ -18,7 +19,6 @@ import { CharacterRenderer, CharacterRenderState } from '../rendering/CharacterR
 import { BombRenderer, BombRenderData, ExplosionRenderData } from '../rendering/BombRenderer';
 import { SlimeRenderer } from '../rendering/SlimeRenderer';
 import { UIRenderer } from '../rendering/UIRenderer';
-import { CardOverlay } from '../rendering/CardOverlay';
 import { InputManager } from '../input/InputManager';
 import { TouchControls } from '../TouchControls';
 
@@ -35,6 +35,7 @@ export class GameScene extends Phaser.Scene {
   private stateMachine!: GameStateMachine;
   private levelManager!: LevelManager;
   private levelProgress!: LevelProgress;
+  private inventory!: PlayerInventory;
   private currentLevel: number = 1;
   private activeBossRule: BossRule = BossRule.NONE;
   private upgrades!: PlayerUpgrades;
@@ -46,7 +47,6 @@ export class GameScene extends Phaser.Scene {
   private bombRenderer!: BombRenderer;
   private slimeRenderer!: SlimeRenderer;
   private uiRenderer!: UIRenderer;
-  private cardOverlay!: CardOverlay;
 
   // Input
   private inputManager!: InputManager;
@@ -101,6 +101,11 @@ export class GameScene extends Phaser.Scene {
 
     // Player upgrades (must be created before character/bombs)
     this.upgrades      = new PlayerUpgrades();
+    this.inventory     = PlayerInventory.getInstance();
+    // Apply all owned cards from persistent inventory
+    for (const card of this.inventory.cards) {
+      this.upgrades.applyCard(card);
+    }
     this.levelManager  = new LevelManager();
     this.levelManager.setStage(this.currentLevel);
     this.levelProgress = LevelProgress.getInstance();
@@ -133,7 +138,6 @@ export class GameScene extends Phaser.Scene {
     this.charRenderer  = new CharacterRenderer(this);
     this.bombRenderer  = new BombRenderer();
     this.slimeRenderer = new SlimeRenderer(this);
-    this.cardOverlay   = new CardOverlay(this);
 
     // Audio
     this.sfxStep    = this.sound.add('step');
@@ -147,6 +151,7 @@ export class GameScene extends Phaser.Scene {
     this.tetris.spawnPiece();
     this.uiRenderer.drawNextPreview(this.tetris.nextType, TETROMINOES);
     this.uiRenderer.updateStage(this.currentLevel, 0, this.levelManager.getTargetLines(), this.levelManager.getTargetScore());
+    this.uiRenderer.drawCards(this.inventory.cards);
     this.charRenderer.drawHP(this.character.hp, this.character.maxHp);
     this.charRenderer.drawBombCount(this.bombs.bombCount);
     this.renderAll();
@@ -225,42 +230,10 @@ export class GameScene extends Phaser.Scene {
         if (stageComplete) {
           this.stateMachine.transition('stageClear');
           this.boardRenderer.markDirty();
-
-          const isFirstClear = this.levelProgress.isFirstClear(this.currentLevel);
-
-          if (isFirstClear) {
-            // First clear: boss levels show rare cards, normal levels show standard cards
-            const isBoss = this.levelManager.getConfig().isBoss;
-            const cards = isBoss
-              ? [...BOSS_UPGRADE_CARDS].sort(() => Math.random() - 0.5).slice(0, Math.min(2, BOSS_UPGRADE_CARDS.length))
-              : pickRandomCards(3);
-            this.cardOverlay.show(cards, this.currentLevel, (card) => {
-              this.upgrades.applyCard(card);
-
-              // HP boost also heals immediately
-              if (card.id === 'hp_boost') {
-                this.character.hp = Math.min(
-                  this.character.hp + 2,
-                  this.character.maxHp,
-                );
-              }
-
-              // bomb_capacity negative effect: target lines +2
-              if (card.id === 'bomb_capacity') {
-                this.levelManager.addTargetLinesBonus(2);
-              }
-
-              // Mark level as cleared and return to map
-              this.levelProgress.markCleared(this.currentLevel);
-              this.levelProgress.markNodeCleared(this.currentNodeId);
-              this.scene.start('LevelSelectScene');
-            });
-          } else {
-            // Already cleared: return to map immediately
-            this.levelProgress.markCleared(this.currentLevel);
-            this.levelProgress.markNodeCleared(this.currentNodeId);
-            this.scene.start('LevelSelectScene');
-          }
+          this.levelProgress.markCleared(this.currentLevel);
+          this.levelProgress.markNodeCleared(this.currentNodeId);
+          const gold = computeGoldReward(this.currentLevel, this.tetris.score);
+          this.scene.start('ShopScene', { goldAwarded: gold });
         } else {
           this.stateMachine.transition('animDone');
           this.boardRenderer.markDirty();
@@ -628,7 +601,6 @@ export class GameScene extends Phaser.Scene {
     this.bombs.reset();
     this.slimes.reset();
     this.stateMachine.transition('restart');
-    this.cardOverlay.hide();
 
     // Destroy dynamic graphics
     for (const g of this.bombGraphics)      g.destroy();

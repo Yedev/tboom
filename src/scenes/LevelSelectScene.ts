@@ -1,16 +1,19 @@
 import Phaser from 'phaser';
 import { CANVAS_WIDTH, CANVAS_HEIGHT } from '../constants';
 import { LevelProgress } from '../core/LevelProgress';
+import { PlayerInventory, MAX_CARDS } from '../core/PlayerInventory';
 import { MAP_NODES, MapNode } from '../data/mapLayout';
 
 const NODE_R = 32;   // node circle radius
 
 export class LevelSelectScene extends Phaser.Scene {
-  private progress: LevelProgress;
+  private progress:  LevelProgress;
+  private inventory: PlayerInventory;
 
   constructor() {
     super({ key: 'LevelSelectScene' });
-    this.progress = LevelProgress.getInstance();
+    this.progress  = LevelProgress.getInstance();
+    this.inventory = PlayerInventory.getInstance();
   }
 
   create(): void {
@@ -40,6 +43,9 @@ export class LevelSelectScene extends Phaser.Scene {
       this.drawNode(node, gfx);
     }
 
+    // ── Card collection panel ────────────────────────────────────────
+    this.drawCardPanel();
+
     // ── Back button ──────────────────────────────────────────────────
     this.createButton(70, CANVAS_HEIGHT - 40, '< BACK', 0x334466, () => {
       this.scene.start('TitleScene');
@@ -53,6 +59,58 @@ export class LevelSelectScene extends Phaser.Scene {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
+
+  private drawCardPanel(): void {
+    const panelY = CANVAS_HEIGHT - 110;
+    const panelW = CANVAS_WIDTH - 20;
+    const panelH = 66;
+
+    // Background
+    const bg = this.add.graphics();
+    bg.fillStyle(0x0d0d20, 0.92);
+    bg.fillRoundedRect(10, panelY, panelW, panelH, 8);
+    bg.lineStyle(1, 0x334466, 0.6);
+    bg.strokeRoundedRect(10, panelY, panelW, panelH, 8);
+
+    // Gold label
+    this.add.text(18, panelY + 6, `💰 ${this.inventory.gold}`, {
+      fontSize: '14px', fontFamily: 'monospace',
+      color: '#ffd700', fontStyle: 'bold',
+    });
+
+    // Card slots
+    const SLOT_W   = 84;
+    const SLOT_H   = 40;
+    const SLOT_GAP = 6;
+    const totalW   = MAX_CARDS * SLOT_W + (MAX_CARDS - 1) * SLOT_GAP;
+    const startX   = (CANVAS_WIDTH - totalW) / 2;
+    const slotY    = panelY + panelH / 2 - SLOT_H / 2;
+
+    for (let i = 0; i < MAX_CARDS; i++) {
+      const cx   = startX + i * (SLOT_W + SLOT_GAP);
+      const card = this.inventory.cards[i];
+
+      const slotGfx = this.add.graphics();
+      if (card) {
+        slotGfx.fillStyle(card.color, 0.2);
+        slotGfx.fillRoundedRect(cx, slotY, SLOT_W, SLOT_H, 5);
+        slotGfx.lineStyle(1, card.color, 0.9);
+        slotGfx.strokeRoundedRect(cx, slotY, SLOT_W, SLOT_H, 5);
+        this.add.text(cx + SLOT_W / 2, slotY + SLOT_H / 2, card.name, {
+          fontSize: '11px', fontFamily: 'monospace',
+          color: '#ffffff', fontStyle: 'bold',
+        }).setOrigin(0.5);
+      } else {
+        slotGfx.fillStyle(0x1a1a2e, 0.8);
+        slotGfx.fillRoundedRect(cx, slotY, SLOT_W, SLOT_H, 5);
+        slotGfx.lineStyle(1, 0x334455, 0.4);
+        slotGfx.strokeRoundedRect(cx, slotY, SLOT_W, SLOT_H, 5);
+        this.add.text(cx + SLOT_W / 2, slotY + SLOT_H / 2, '空', {
+          fontSize: '16px', fontFamily: 'monospace', color: '#334455',
+        }).setOrigin(0.5);
+      }
+    }
+  }
 
   private drawNode(node: MapNode, _gfx: Phaser.GameObjects.Graphics): void {
     const cleared  = this.progress.isNodeCleared(node.id);
