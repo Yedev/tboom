@@ -125,13 +125,13 @@ export class TitleScene extends Phaser.Scene {
       { x: 54,  y: 580, color: 0xa000f0 },
       { x: 86,  y: 580, color: 0xa000f0 },
       // Right column — red Z pieces
-      { x: 434, y: 76,  color: 0xf00000 },
-      { x: 434, y: 108, color: 0xf00000 },
-      { x: 466, y: 108, color: 0xf00000 },
+      { x: 554, y: 76,  color: 0xf00000 },
+      { x: 554, y: 108, color: 0xf00000 },
+      { x: 586, y: 108, color: 0xf00000 },
       // Right lower — green S
-      { x: 434, y: 548, color: 0x00f000 },
-      { x: 434, y: 580, color: 0x00f000 },
-      { x: 466, y: 580, color: 0x00f000 },
+      { x: 554, y: 548, color: 0x00f000 },
+      { x: 554, y: 580, color: 0x00f000 },
+      { x: 586, y: 580, color: 0x00f000 },
     ];
 
     for (const b of blocks) {

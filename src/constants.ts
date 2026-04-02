@@ -1,5 +1,5 @@
 // Canvas
-export const CANVAS_WIDTH = 520;
+export const CANVAS_WIDTH = 640;
 export const CANVAS_HEIGHT = 960;
 export const CANVAS_BG_COLOR = '#0a0a1a';
 
@@ -9,9 +9,9 @@ export const ROWS = 20;
 export const BLOCK_SIZE = 32;
 
 // Layout
-export const BOARD_X = 40;
+export const BOARD_X = 10;
 export const BOARD_Y = 40;
-export const PANEL_X = BOARD_X + COLS * BLOCK_SIZE + 30;
+export const PANEL_X = BOARD_X + COLS * BLOCK_SIZE + 20;
 
 // Board visual
 export const BOARD_BORDER_WIDTH = 2;
@@ -245,12 +245,12 @@ export const SLIME_COLOR_EYE = 0xffffff;
 export const SLIME_COLOR_PUPIL = 0x004400;
 
 // Touch controls layout
-export const DPAD_CX = 110;
-export const DPAD_CY = 830;
+export const DPAD_CX = 120;
+export const DPAD_CY = 840;
 export const DPAD_SIZE = 54;
 export const DPAD_GAP = 8;
 export const DPAD_ARROW_HALF_SIZE = 12;
-export const BTN_CLUSTER_CX = 390;
+export const BTN_CLUSTER_CX = 510;
 export const BTN_CLUSTER_CY = 870;
 export const BTN_BIG_R = 44;
 export const BTN_SMALL_R = 30;
