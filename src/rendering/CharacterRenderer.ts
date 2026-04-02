@@ -30,12 +30,12 @@ export class CharacterRenderer {
     const hpStyle: Phaser.Types.GameObjects.Text.TextStyle = {
       fontSize: '16px', fontFamily: 'monospace', color: '#ff4466',
     };
-    this.hpText = scene.add.text(PANEL_X, BOARD_Y + 340, '', hpStyle);
+    this.hpText = scene.add.text(PANEL_X, BOARD_Y + 366, '', hpStyle);
 
     const bombStyle: Phaser.Types.GameObjects.Text.TextStyle = {
       fontSize: '16px', fontFamily: 'monospace', color: '#ffaa22',
     };
-    this.bombText = scene.add.text(PANEL_X, BOARD_Y + 380, '', bombStyle);
+    this.bombText = scene.add.text(PANEL_X, BOARD_Y + 406, '', bombStyle);
   }
 
   draw(state: CharacterRenderState): void {

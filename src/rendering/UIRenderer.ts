@@ -8,22 +8,21 @@ import { UpgradeCard } from '../core/PlayerUpgrades';
 
 // Panel layout — all offsets from BOARD_Y
 const Y_SCORE_LABEL  = 0;
-const Y_SCORE_VALUE  = 22;
-const Y_LEVEL_LABEL  = 56;
-const Y_LEVEL_VALUE  = 78;
-const Y_LINES_LABEL  = 112;
-const Y_LINES_VALUE  = 130;
-const Y_STAGE_LABEL  = 156;
-const Y_STAGE_VALUE  = 174;
-const Y_STAGE_PROG   = 192;  // lines progress
-const Y_STAGE_GOAL   = 208;  // ★ target score
-const Y_NEXT_LABEL   = 232;
-const Y_NEXT_PREVIEW = 254;
-const Y_HP_LABEL     = 324;
-const Y_BOMB_LABEL   = 364;
-const Y_CONTROLS     = 434;
-const Y_CARDS_LABEL  = 598;
-const Y_CARDS_START  = 616;
+const Y_SCORE_VALUE  = 18;
+const Y_LEVEL_LABEL  = 50;
+const Y_LEVEL_VALUE  = 68;
+const Y_LINES_LABEL  = 100;
+const Y_LINES_VALUE  = 118;
+const Y_STAGE_LABEL  = 152;
+const Y_STAGE_VALUE  = 170;
+const Y_STAGE_PROG   = 188;  // lines progress
+const Y_STAGE_GOAL   = 204;  // ★ target score
+const Y_NEXT_LABEL   = 226;
+const Y_NEXT_PREVIEW = 246;
+const Y_HP_LABEL     = 348;
+const Y_BOMB_LABEL   = 388;
+const Y_CARDS_LABEL  = 430;
+const Y_CARDS_START  = 450;
 
 export class UIRenderer {
   private scene: Phaser.Scene;
@@ -95,36 +94,21 @@ export class UIRenderer {
     scene.add.text(PANEL_X, BOARD_Y + Y_HP_LABEL,   'HP',   titleStyle);
     scene.add.text(PANEL_X, BOARD_Y + Y_BOMB_LABEL,  'BOMB', titleStyle);
 
-    // Controls help
-    const helpStyle: Phaser.Types.GameObjects.Text.TextStyle = {
-      fontSize: '11px', fontFamily: 'monospace', color: '#556677',
-    };
-    const hy = BOARD_Y + Y_CONTROLS;
-    scene.add.text(PANEL_X, hy,       '--- Controls ---', helpStyle);
-    scene.add.text(PANEL_X, hy + 16,  'A/D   Move',       helpStyle);
-    scene.add.text(PANEL_X, hy + 32,  'Space Jump',       helpStyle);
-    scene.add.text(PANEL_X, hy + 48,  'E     Bomb',       helpStyle);
-    scene.add.text(PANEL_X, hy + 64,  'Q     Rotate',     helpStyle);
-    scene.add.text(PANEL_X, hy + 80,  'W     Drop',       helpStyle);
-    scene.add.text(PANEL_X, hy + 96,  'S     Hard Drop',  helpStyle);
-    scene.add.text(PANEL_X, hy + 112, 'P     Pause',      helpStyle);
-    scene.add.text(PANEL_X, hy + 128, 'R     Restart',    helpStyle);
-
     // Cards section
     scene.add.text(PANEL_X, BOARD_Y + Y_CARDS_LABEL, 'CARDS', titleStyle);
-    const SLOT_H = 18;
+    const SLOT_H = 22;
     const SLOT_GAP = 2;
     for (let i = 0; i < 5; i++) {
       const sy = BOARD_Y + Y_CARDS_START + i * (SLOT_H + SLOT_GAP);
       const gfx = scene.add.graphics();
       gfx.fillStyle(0x1a1a2e, 1);
-      gfx.fillRoundedRect(PANEL_X, sy, 118, SLOT_H, 3);
+      gfx.fillRoundedRect(PANEL_X, sy, 260, SLOT_H, 3);
       gfx.lineStyle(1, 0x334455, 0.5);
-      gfx.strokeRoundedRect(PANEL_X, sy, 118, SLOT_H, 3);
+      gfx.strokeRoundedRect(PANEL_X, sy, 260, SLOT_H, 3);
       this.cardSlots.push(gfx);
 
-      const txt = scene.add.text(PANEL_X + 4, sy + 3, '', {
-        fontSize: '11px', fontFamily: 'monospace', color: '#334455',
+      const txt = scene.add.text(PANEL_X + 4, sy + 4, '', {
+        fontSize: '12px', fontFamily: 'monospace', color: '#334455',
       });
       this.cardTexts.push(txt);
     }
@@ -192,7 +176,7 @@ export class UIRenderer {
   }
 
   drawCards(cards: UpgradeCard[]): void {
-    const SLOT_H = 18;
+    const SLOT_H = 22;
     const SLOT_GAP = 2;
     for (let i = 0; i < 5; i++) {
       const sy   = BOARD_Y + Y_CARDS_START + i * (SLOT_H + SLOT_GAP);
@@ -204,15 +188,15 @@ export class UIRenderer {
       gfx.clear();
       if (card) {
         gfx.fillStyle(card.color, 0.25);
-        gfx.fillRoundedRect(PANEL_X, sy, 118, SLOT_H, 3);
+        gfx.fillRoundedRect(PANEL_X, sy, 260, SLOT_H, 3);
         gfx.lineStyle(1, card.color, 0.8);
-        gfx.strokeRoundedRect(PANEL_X, sy, 118, SLOT_H, 3);
+        gfx.strokeRoundedRect(PANEL_X, sy, 260, SLOT_H, 3);
         txt.setText(card.name).setColor('#ffffff');
       } else {
         gfx.fillStyle(0x1a1a2e, 1);
-        gfx.fillRoundedRect(PANEL_X, sy, 118, SLOT_H, 3);
+        gfx.fillRoundedRect(PANEL_X, sy, 260, SLOT_H, 3);
         gfx.lineStyle(1, 0x334455, 0.5);
-        gfx.strokeRoundedRect(PANEL_X, sy, 118, SLOT_H, 3);
+        gfx.strokeRoundedRect(PANEL_X, sy, 260, SLOT_H, 3);
         txt.setText('').setColor('#334455');
       }
     }
